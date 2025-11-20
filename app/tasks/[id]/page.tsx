@@ -38,17 +38,14 @@ export default function TaskPage() {
   const taskId = params.id as string
 
   // Fetch task from Convex
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const convexTask = useQuery(
-    (api as any).tasks?.getTask,
+    api.tasks.getTask,
     taskId ? { id: taskId as Id<'tasks'> } : 'skip',
   ) as ConvexTask | undefined
 
   // Mutations
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const updateTaskMutation = useMutation((api as any).tasks?.updateTask)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const deleteTaskMutation = useMutation((api as any).tasks?.deleteTask)
+  const updateTaskMutation = useMutation(api.tasks.updateTask)
+  const deleteTaskMutation = useMutation(api.tasks.deleteTask)
 
   const task = transformTask(convexTask)
   const isLoading = convexTask === undefined
