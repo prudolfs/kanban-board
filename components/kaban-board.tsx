@@ -16,6 +16,7 @@ import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
 import { Column } from './column'
 import { TaskCard } from './task-card'
+import { TaskPreview } from './task-preview'
 import { Task, Column as ColumnType, ColumnId } from '../types'
 
 // Convex task type
@@ -103,6 +104,7 @@ export function KanbanBoard() {
   }, [convexTasks])
 
   const [activeTask, setActiveTask] = useState<Task | null>(null)
+  const [previewTask, setPreviewTask] = useState<Task | null>(null)
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -327,6 +329,7 @@ export function KanbanBoard() {
             onAddTask={handleAddTask}
             onDeleteTask={handleDeleteTask}
             onUpdateTask={handleUpdateTask}
+            onPreviewTask={setPreviewTask}
           />
         ))}
       </div>
@@ -336,6 +339,14 @@ export function KanbanBoard() {
           <TaskCard task={activeTask} onDelete={() => {}} onUpdate={() => {}} />
         ) : null}
       </DragOverlay>
+
+      <TaskPreview
+        task={previewTask}
+        isOpen={previewTask !== null}
+        onClose={() => setPreviewTask(null)}
+        onUpdate={handleUpdateTask}
+        onDelete={handleDeleteTask}
+      />
     </DndContext>
   )
 }

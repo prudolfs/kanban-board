@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useRef } from 'react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { Task } from '../types'
@@ -8,12 +8,19 @@ interface TaskCardProps {
   task: Task
   onDelete: (taskId: string) => void
   onUpdate: (taskId: string, updates: Partial<Task>) => void
+  onPreview: (task: Task) => void
 }
 
-export function TaskCard({ task, onDelete, onUpdate }: TaskCardProps) {
+export function TaskCard({
+  task,
+  onDelete,
+  onUpdate,
+  onPreview,
+}: TaskCardProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [editTitle, setEditTitle] = useState(task.title)
   const [editDescription, setEditDescription] = useState(task.description || '')
+  const mouseDownPos = useRef<{ x: number; y: number } | null>(null)
 
   const {
     attributes,
@@ -22,7 +29,13 @@ export function TaskCard({ task, onDelete, onUpdate }: TaskCardProps) {
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: task.id })
+  } = useSortable({
+    id: task.id,
+    data: {
+      type: 'task',
+      task,
+    },
+  })
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -61,12 +74,57 @@ export function TaskCard({ task, onDelete, onUpdate }: TaskCardProps) {
     })
   }
 
+  const handleMouseDown = (e: React.MouseEvent) => {
+    // Store initial mouse position to detect drag vs click
+    mouseDownPos.current = { x: e.clientX, y: e.clientY }
+  }
+
+  const handleCardClick = (e: React.MouseEvent) => {
+    // Don't open preview if:
+    // - Editing mode is active
+    // - Currently dragging
+    // - Mouse moved significantly (was a drag, not a click)
+    // - Clicking on action buttons or form elements
+    const moved =
+      mouseDownPos.current &&
+      (Math.abs(e.clientX - mouseDownPos.current.x) > 5 ||
+        Math.abs(e.clientY - mouseDownPos.current.y) > 5)
+
+    if (
+      isEditing ||
+      isDragging ||
+      moved ||
+      (e.target as HTMLElement).closest('button') ||
+      (e.target as HTMLElement).closest('input') ||
+      (e.target as HTMLElement).closest('textarea')
+    ) {
+      mouseDownPos.current = null
+      return
+    }
+
+    mouseDownPos.current = null
+    onPreview(task)
+  }
+
+  // Merge drag listeners with our mouse down handler
+  const mergedListeners = {
+    ...listeners,
+    onMouseDown: (e: React.MouseEvent) => {
+      handleMouseDown(e)
+      // Call dnd-kit's mouse down handler
+      if (listeners?.onMouseDown) {
+        listeners.onMouseDown(e as unknown as React.MouseEvent<HTMLElement>)
+      }
+    },
+  }
+
   return (
     <div
       ref={setNodeRef}
       style={style}
       {...attributes}
-      {...listeners}
+      {...mergedListeners}
+      onClick={handleCardClick}
       className={`mb-3 cursor-grab rounded-lg border border-gray-200 bg-white p-4 shadow-sm transition-all duration-200 hover:shadow-md active:cursor-grabbing ${
         isDragging ? 'scale-105 rotate-3 opacity-50' : ''
       }`}

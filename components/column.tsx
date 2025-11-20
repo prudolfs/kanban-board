@@ -10,6 +10,7 @@ interface ColumnProps {
   onAddTask: (columnId: string, task: Omit<Task, 'id' | 'createdAt'>) => void
   onDeleteTask: (taskId: string) => void
   onUpdateTask: (taskId: string, updates: Partial<Task>) => void
+  onPreviewTask: (task: Task) => void
 }
 
 export function Column({
@@ -17,6 +18,7 @@ export function Column({
   onAddTask,
   onDeleteTask,
   onUpdateTask,
+  onPreviewTask,
 }: ColumnProps) {
   const [isAddingTask, setIsAddingTask] = useState(false)
   const [newTaskTitle, setNewTaskTitle] = useState('')
@@ -92,13 +94,14 @@ export function Column({
                   task={task}
                   onDelete={onDeleteTask}
                   onUpdate={onUpdateTask}
+                  onPreview={onPreviewTask}
                 />
               ))}
             </div>
           </SortableContext>
         </div>
 
-        <div className="flex-shrink-0 rounded-b-xl border-t border-gray-200 bg-white p-4">
+        <div className="shrink-0 rounded-b-xl border-t border-gray-200 bg-white p-4">
           {isAddingTask ? (
             <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 shadow-sm">
               <div className="space-y-3">
