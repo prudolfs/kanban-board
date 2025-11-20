@@ -1,6 +1,6 @@
-"use client";
+'use client'
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo } from 'react'
 import {
   DndContext,
   DragOverlay,
@@ -10,31 +10,34 @@ import {
   DragStartEvent,
   DragOverEvent,
   DragEndEvent,
-} from '@dnd-kit/core';
-import { useQuery, useMutation } from 'convex/react';
-import { api } from '@/convex/_generated/api';
-import type { Id } from '@/convex/_generated/dataModel';
-import { Column } from './column';
-import { TaskCard } from './task-card';
-import { Task, Column as ColumnType, ColumnId } from '../types';
+} from '@dnd-kit/core'
+import { useQuery, useMutation } from 'convex/react'
+import { api } from '@/convex/_generated/api'
+import type { Id } from '@/convex/_generated/dataModel'
+import { Column } from './column'
+import { TaskCard } from './task-card'
+import { Task, Column as ColumnType, ColumnId } from '../types'
 
 // Convex task type
 type ConvexTask = {
-  _id: Id<"tasks">;
-  title: string;
-  description?: string;
-  priority: 'low' | 'medium' | 'high';
-  dueDate?: string;
-  columnId: ColumnId;
-  order: number;
-  createdAt: string;
-};
+  _id: Id<'tasks'>
+  title: string
+  description?: string
+  priority: 'low' | 'medium' | 'high'
+  dueDate?: string
+  columnId: ColumnId
+  order: number
+  createdAt: string
+}
 
-const columnConfig: Record<ColumnId, { title: string; color: string; bgColor: string }> = {
+const columnConfig: Record<
+  ColumnId,
+  { title: string; color: string; bgColor: string }
+> = {
   todo: { title: 'To Do', color: 'bg-blue-500', bgColor: 'bg-blue-50' },
   doing: { title: 'Doing', color: 'bg-orange-500', bgColor: 'bg-orange-50' },
   done: { title: 'Done', color: 'bg-green-500', bgColor: 'bg-green-50' },
-};
+}
 
 // Transform Convex task to Task type
 function transformTask(convexTask: ConvexTask): Task {
@@ -45,25 +48,27 @@ function transformTask(convexTask: ConvexTask): Task {
     priority: convexTask.priority,
     dueDate: convexTask.dueDate,
     createdAt: convexTask.createdAt,
-  };
+  }
 }
 
 export function KanbanBoard() {
   // Fetch tasks from Convex
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const convexTasks = useQuery((api as any).tasks?.getTasks) as ConvexTask[] | undefined;
-  
+  const convexTasks = useQuery((api as any).tasks?.getTasks) as
+    | ConvexTask[]
+    | undefined
+
   // Mutations
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const createTaskMutation = useMutation((api as any).tasks?.createTask);
+  const createTaskMutation = useMutation((api as any).tasks?.createTask)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const updateTaskMutation = useMutation((api as any).tasks?.updateTask);
+  const updateTaskMutation = useMutation((api as any).tasks?.updateTask)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const deleteTaskMutation = useMutation((api as any).tasks?.deleteTask);
+  const deleteTaskMutation = useMutation((api as any).tasks?.deleteTask)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const moveTaskMutation = useMutation((api as any).tasks?.moveTask);
+  const moveTaskMutation = useMutation((api as any).tasks?.moveTask)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const seedSampleDataMutation = useMutation((api as any).tasks?.seedSampleData);
+  const seedSampleDataMutation = useMutation((api as any).tasks?.seedSampleData)
 
   // Transform and group tasks by column
   const columns = useMemo<ColumnType[]>(() => {
@@ -73,28 +78,31 @@ export function KanbanBoard() {
         id: id as ColumnId,
         ...config,
         tasks: [],
-      }));
+      }))
     }
 
     // Group tasks by column
-    const tasksByColumn = convexTasks.reduce((acc, convexTask) => {
-      const columnId = convexTask.columnId;
-      if (!acc[columnId]) {
-        acc[columnId] = [];
-      }
-      acc[columnId].push(transformTask(convexTask));
-      return acc;
-    }, {} as Record<ColumnId, Task[]>);
+    const tasksByColumn = convexTasks.reduce(
+      (acc, convexTask) => {
+        const columnId = convexTask.columnId
+        if (!acc[columnId]) {
+          acc[columnId] = []
+        }
+        acc[columnId].push(transformTask(convexTask))
+        return acc
+      },
+      {} as Record<ColumnId, Task[]>,
+    )
 
     // Create column structure
     return Object.entries(columnConfig).map(([id, config]) => ({
       id: id as ColumnId,
       ...config,
       tasks: tasksByColumn[id as ColumnId] || [],
-    }));
-  }, [convexTasks]);
+    }))
+  }, [convexTasks])
 
-  const [activeTask, setActiveTask] = useState<Task | null>(null);
+  const [activeTask, setActiveTask] = useState<Task | null>(null)
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -102,90 +110,103 @@ export function KanbanBoard() {
         distance: 3,
       },
     }),
-  );
+  )
 
   const findColumnByTaskId = (taskId: string) => {
-    return columns.find(column => column.tasks.some(task => task.id === taskId));
-  };
+    return columns.find((column) =>
+      column.tasks.some((task) => task.id === taskId),
+    )
+  }
 
   const findTaskById = (taskId: string) => {
     for (const column of columns) {
-      const task = column.tasks.find(task => task.id === taskId);
-      if (task) return task;
+      const task = column.tasks.find((task) => task.id === taskId)
+      if (task) return task
     }
-    return null;
-  };
+    return null
+  }
 
   const handleDragStart = (event: DragStartEvent) => {
-    const task = findTaskById(event.active.id as string);
-    setActiveTask(task);
-  };
+    const task = findTaskById(event.active.id as string)
+    setActiveTask(task)
+  }
 
   const handleDragOver = (event: DragOverEvent) => {
     // Visual feedback only - actual move happens in handleDragEnd
     // This allows for smooth visual updates while dragging
-  };
+  }
 
   const handleDragEnd = async (event: DragEndEvent) => {
-    const { active, over } = event;
-    setActiveTask(null);
+    const { active, over } = event
+    setActiveTask(null)
 
-    if (!over || !convexTasks) return;
+    if (!over || !convexTasks) return
 
-    const activeId = active.id as string;
-    const overId = over.id as string;
+    const activeId = active.id as string
+    const overId = over.id as string
 
-    const activeColumn = findColumnByTaskId(activeId);
-    
+    const activeColumn = findColumnByTaskId(activeId)
+
     // Determine target column (could be a column drop zone or another task)
-    let targetColumn: ColumnType | undefined;
-    let targetOrder: number;
+    let targetColumn: ColumnType | undefined
+    let targetOrder: number
 
-    if (typeof overId === 'string' && ['todo', 'doing', 'done'].includes(overId)) {
+    if (
+      typeof overId === 'string' &&
+      ['todo', 'doing', 'done'].includes(overId)
+    ) {
       // Dropped on a column
-      targetColumn = columns.find(col => col.id === overId);
-      targetOrder = targetColumn?.tasks.length || 0;
+      targetColumn = columns.find((col) => col.id === overId)
+      targetOrder = targetColumn?.tasks.length || 0
     } else {
       // Dropped on another task
-      const overTaskColumn = findColumnByTaskId(overId);
-      if (!overTaskColumn) return;
-      
-      targetColumn = overTaskColumn;
-      const overTaskIndex = overTaskColumn.tasks.findIndex(t => t.id === overId);
-      targetOrder = overTaskIndex >= 0 ? overTaskIndex : overTaskColumn.tasks.length;
-      
+      const overTaskColumn = findColumnByTaskId(overId)
+      if (!overTaskColumn) return
+
+      targetColumn = overTaskColumn
+      const overTaskIndex = overTaskColumn.tasks.findIndex(
+        (t) => t.id === overId,
+      )
+      targetOrder =
+        overTaskIndex >= 0 ? overTaskIndex : overTaskColumn.tasks.length
+
       // If moving within same column and dragging down, adjust order
       if (activeColumn === targetColumn && activeId !== overId) {
-        const activeIndex = activeColumn.tasks.findIndex(t => t.id === activeId);
+        const activeIndex = activeColumn.tasks.findIndex(
+          (t) => t.id === activeId,
+        )
         if (activeIndex < overTaskIndex) {
-          targetOrder = overTaskIndex + 1;
+          targetOrder = overTaskIndex + 1
         }
       }
     }
 
-    if (!activeColumn || !targetColumn) return;
+    if (!activeColumn || !targetColumn) return
 
     // If moving within the same column and same position, do nothing
     if (activeColumn.id === targetColumn.id) {
-      const activeIndex = activeColumn.tasks.findIndex(t => t.id === activeId);
+      const activeIndex = activeColumn.tasks.findIndex((t) => t.id === activeId)
       if (activeIndex === targetOrder || activeIndex === targetOrder - 1) {
-        return; // No change needed
+        return // No change needed
       }
     }
 
     // Call Convex mutation to move the task
     try {
       await moveTaskMutation({
-        taskId: activeId as Id<"tasks">,
+        taskId: activeId as Id<'tasks'>,
         targetColumnId: targetColumn.id,
         targetOrder,
-      });
+      })
     } catch (error) {
-      console.error('Error moving task:', error);
+      console.error('Error moving task:', error)
     }
-  };
+  }
 
-  const handleAddTask = async (columnId: string, newTask: Omit<Task, 'id' | 'createdAt'>) => {
+  const handleAddTask = async (
+    columnId: string,
+    newTask: Omit<Task, 'id' | 'createdAt'>,
+  ) => {
     try {
       await createTaskMutation({
         title: newTask.title,
@@ -193,68 +214,68 @@ export function KanbanBoard() {
         priority: newTask.priority,
         dueDate: newTask.dueDate,
         columnId: columnId as ColumnId,
-      });
+      })
     } catch (error) {
-      console.error('Error creating task:', error);
+      console.error('Error creating task:', error)
     }
-  };
+  }
 
   const handleDeleteTask = async (taskId: string) => {
     try {
       await deleteTaskMutation({
-        id: taskId as Id<"tasks">,
-      });
+        id: taskId as Id<'tasks'>,
+      })
     } catch (error) {
-      console.error('Error deleting task:', error);
+      console.error('Error deleting task:', error)
     }
-  };
+  }
 
   const handleUpdateTask = async (taskId: string, updates: Partial<Task>) => {
     try {
       await updateTaskMutation({
-        id: taskId as Id<"tasks">,
+        id: taskId as Id<'tasks'>,
         title: updates.title,
         description: updates.description,
         priority: updates.priority,
         dueDate: updates.dueDate,
-      });
+      })
     } catch (error) {
-      console.error('Error updating task:', error);
+      console.error('Error updating task:', error)
     }
-  };
+  }
 
   const handleSeedSampleData = async () => {
     try {
-      await seedSampleDataMutation();
+      await seedSampleDataMutation()
     } catch (error) {
-      console.error('Error seeding sample data:', error);
+      console.error('Error seeding sample data:', error)
     }
-  };
+  }
 
   // Check if there are any tasks
-  const totalTasks = convexTasks?.length || 0;
-  const isLoading = convexTasks === undefined;
+  const totalTasks = convexTasks?.length || 0
+  const isLoading = convexTasks === undefined
 
   // Show loading state
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-center space-y-4">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+      <div className="flex h-full items-center justify-center">
+        <div className="space-y-4 text-center">
+          <div className="mx-auto h-12 w-12 animate-spin rounded-full border-b-2 border-blue-600"></div>
           <p className="text-gray-600">Loading tasks...</p>
         </div>
       </div>
-    );
+    )
   }
 
   // Show empty state if no tasks
   if (totalTasks === 0) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-center space-y-4">
+      <div className="flex h-full items-center justify-center">
+        <div className="space-y-4 text-center">
           <div className="text-gray-400">
             <svg
-              className="w-24 h-24 mx-auto"
+              className="mx-auto h-24 w-24"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -268,18 +289,19 @@ export function KanbanBoard() {
             </svg>
           </div>
           <h3 className="text-xl font-semibold text-gray-900">No tasks yet</h3>
-          <p className="text-gray-600 max-w-md">
-            Get started by seeding some sample tasks or create your first task in a column.
+          <p className="max-w-md text-gray-600">
+            Get started by seeding some sample tasks or create your first task
+            in a column.
           </p>
           <button
             onClick={handleSeedSampleData}
-            className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+            className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-6 py-3 font-medium text-white transition-colors hover:bg-blue-700"
           >
             <span>Seed Sample Data</span>
           </button>
         </div>
       </div>
-    );
+    )
   }
 
   return (
@@ -297,7 +319,7 @@ export function KanbanBoard() {
         acceleration: 0.01,
       }}
     >
-      <div className="flex gap-6 h-full overflow-x-auto">
+      <div className="flex h-full gap-6 overflow-x-auto">
         {columns.map((column) => (
           <Column
             key={column.id}
@@ -311,13 +333,9 @@ export function KanbanBoard() {
 
       <DragOverlay>
         {activeTask ? (
-          <TaskCard
-            task={activeTask}
-            onDelete={() => {}}
-            onUpdate={() => {}}
-          />
+          <TaskCard task={activeTask} onDelete={() => {}} onUpdate={() => {}} />
         ) : null}
       </DragOverlay>
     </DndContext>
-  );
+  )
 }
