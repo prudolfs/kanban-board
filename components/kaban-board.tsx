@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+"use client";
+
+import React, { useState, useMemo } from 'react';
 import {
   DndContext,
   DragOverlay,
@@ -9,71 +11,89 @@ import {
   DragOverEvent,
   DragEndEvent,
 } from '@dnd-kit/core';
-import { arrayMove } from '@dnd-kit/sortable';
+import { useQuery, useMutation } from 'convex/react';
+import { api } from '@/convex/_generated/api';
+import type { Id } from '@/convex/_generated/dataModel';
 import { Column } from './column';
 import { TaskCard } from './task-card';
 import { Task, Column as ColumnType, ColumnId } from '../types';
-import { v4 as uuidv4 } from 'uuid';
 
-const initialColumns: ColumnType[] = [
-  {
-    id: 'todo',
-    title: 'To Do',
-    color: 'bg-blue-500',
-    bgColor: 'bg-blue-50',
-    tasks: [
-      {
-        id: '1',
-        title: 'Design user interface mockups',
-        description: 'Create high-fidelity mockups for the dashboard and user profile pages',
-        priority: 'high',
-        dueDate: '2025-01-20',
-        createdAt: '2025-01-15T10:00:00Z',
-      },
-      {
-        id: '2',
-        title: 'Research competitor features',
-        description: 'Analyze top 5 competitors and document key features',
-        priority: 'medium',
-        createdAt: '2025-01-15T11:00:00Z',
-      },
-    ],
-  },
-  {
-    id: 'doing',
-    title: 'Doing',
-    color: 'bg-orange-500',
-    bgColor: 'bg-orange-50',
-    tasks: [
-      {
-        id: '3',
-        title: 'Implement authentication system',
-        description: 'Set up JWT-based authentication with refresh tokens',
-        priority: 'high',
-        dueDate: '2025-01-18',
-        createdAt: '2025-01-15T09:00:00Z',
-      },
-    ],
-  },
-  {
-    id: 'done',
-    title: 'Done',
-    color: 'bg-green-500',
-    bgColor: 'bg-green-50',
-    tasks: [
-      {
-        id: '4',
-        title: 'Set up development environment',
-        description: 'Configure React, TypeScript, and Tailwind CSS',
-        priority: 'medium',
-        createdAt: '2025-01-14T16:00:00Z',
-      },
-    ],
-  },
-];
+// Convex task type
+type ConvexTask = {
+  _id: Id<"tasks">;
+  title: string;
+  description?: string;
+  priority: 'low' | 'medium' | 'high';
+  dueDate?: string;
+  columnId: ColumnId;
+  order: number;
+  createdAt: string;
+};
+
+const columnConfig: Record<ColumnId, { title: string; color: string; bgColor: string }> = {
+  todo: { title: 'To Do', color: 'bg-blue-500', bgColor: 'bg-blue-50' },
+  doing: { title: 'Doing', color: 'bg-orange-500', bgColor: 'bg-orange-50' },
+  done: { title: 'Done', color: 'bg-green-500', bgColor: 'bg-green-50' },
+};
+
+// Transform Convex task to Task type
+function transformTask(convexTask: ConvexTask): Task {
+  return {
+    id: convexTask._id,
+    title: convexTask.title,
+    description: convexTask.description,
+    priority: convexTask.priority,
+    dueDate: convexTask.dueDate,
+    createdAt: convexTask.createdAt,
+  };
+}
 
 export function KanbanBoard() {
-  const [columns, setColumns] = useState<ColumnType[]>(initialColumns);
+  // Fetch tasks from Convex
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const convexTasks = useQuery((api as any).tasks?.getTasks) as ConvexTask[] | undefined;
+  
+  // Mutations
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const createTaskMutation = useMutation((api as any).tasks?.createTask);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const updateTaskMutation = useMutation((api as any).tasks?.updateTask);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const deleteTaskMutation = useMutation((api as any).tasks?.deleteTask);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const moveTaskMutation = useMutation((api as any).tasks?.moveTask);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const seedSampleDataMutation = useMutation((api as any).tasks?.seedSampleData);
+
+  // Transform and group tasks by column
+  const columns = useMemo<ColumnType[]>(() => {
+    if (!convexTasks) {
+      // Return empty columns while loading
+      return Object.entries(columnConfig).map(([id, config]) => ({
+        id: id as ColumnId,
+        ...config,
+        tasks: [],
+      }));
+    }
+
+    // Group tasks by column
+    const tasksByColumn = convexTasks.reduce((acc, convexTask) => {
+      const columnId = convexTask.columnId;
+      if (!acc[columnId]) {
+        acc[columnId] = [];
+      }
+      acc[columnId].push(transformTask(convexTask));
+      return acc;
+    }, {} as Record<ColumnId, Task[]>);
+
+    // Create column structure
+    return Object.entries(columnConfig).map(([id, config]) => ({
+      id: id as ColumnId,
+      ...config,
+      tasks: tasksByColumn[id as ColumnId] || [],
+    }));
+  }, [convexTasks]);
+
   const [activeTask, setActiveTask] = useState<Task | null>(null);
 
   const sensors = useSensors(
@@ -102,121 +122,165 @@ export function KanbanBoard() {
   };
 
   const handleDragOver = (event: DragOverEvent) => {
-    const { active, over } = event;
-    if (!over) return;
-
-    const activeId = active.id as string;
-    const overId = over.id as string;
-
-    const activeColumn = findColumnByTaskId(activeId);
-    const overColumn = columns.find(column => 
-      column.id === overId || column.tasks.some(task => task.id === overId)
-    );
-
-    if (!activeColumn || !overColumn || activeColumn === overColumn) return;
-
-    setColumns(columns => {
-      const activeItems = activeColumn.tasks;
-      const overItems = overColumn.tasks;
-
-      const activeIndex = activeItems.findIndex(task => task.id === activeId);
-      const overIndex = overItems.findIndex(task => task.id === overId);
-
-      let newIndex: number;
-      if (overId in overColumn.tasks.map(task => task.id)) {
-        newIndex = overIndex;
-      } else {
-        newIndex = overItems.length;
-      }
-
-      return columns.map(column => {
-        if (column.id === activeColumn.id) {
-          return {
-            ...column,
-            tasks: column.tasks.filter(task => task.id !== activeId)
-          };
-        } else if (column.id === overColumn.id) {
-          return {
-            ...column,
-            tasks: [
-              ...column.tasks.slice(0, newIndex),
-              activeItems[activeIndex],
-              ...column.tasks.slice(newIndex)
-            ]
-          };
-        }
-        return column;
-      });
-    });
+    // Visual feedback only - actual move happens in handleDragEnd
+    // This allows for smooth visual updates while dragging
   };
 
-  const handleDragEnd = (event: DragEndEvent) => {
+  const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveTask(null);
 
-    if (!over) return;
+    if (!over || !convexTasks) return;
 
     const activeId = active.id as string;
     const overId = over.id as string;
 
     const activeColumn = findColumnByTaskId(activeId);
-    const overColumn = columns.find(column => 
-      column.id === overId || column.tasks.some(task => task.id === overId)
-    );
+    
+    // Determine target column (could be a column drop zone or another task)
+    let targetColumn: ColumnType | undefined;
+    let targetOrder: number;
 
-    if (!activeColumn || !overColumn) return;
-
-    if (activeColumn === overColumn) {
-      const activeIndex = activeColumn.tasks.findIndex(task => task.id === activeId);
-      const overIndex = overColumn.tasks.findIndex(task => task.id === overId);
-
-      if (activeIndex !== overIndex) {
-        setColumns(columns => columns.map(column => {
-          if (column.id === activeColumn.id) {
-            return {
-              ...column,
-              tasks: arrayMove(column.tasks, activeIndex, overIndex)
-            };
-          }
-          return column;
-        }));
+    if (typeof overId === 'string' && ['todo', 'doing', 'done'].includes(overId)) {
+      // Dropped on a column
+      targetColumn = columns.find(col => col.id === overId);
+      targetOrder = targetColumn?.tasks.length || 0;
+    } else {
+      // Dropped on another task
+      const overTaskColumn = findColumnByTaskId(overId);
+      if (!overTaskColumn) return;
+      
+      targetColumn = overTaskColumn;
+      const overTaskIndex = overTaskColumn.tasks.findIndex(t => t.id === overId);
+      targetOrder = overTaskIndex >= 0 ? overTaskIndex : overTaskColumn.tasks.length;
+      
+      // If moving within same column and dragging down, adjust order
+      if (activeColumn === targetColumn && activeId !== overId) {
+        const activeIndex = activeColumn.tasks.findIndex(t => t.id === activeId);
+        if (activeIndex < overTaskIndex) {
+          targetOrder = overTaskIndex + 1;
+        }
       }
+    }
+
+    if (!activeColumn || !targetColumn) return;
+
+    // If moving within the same column and same position, do nothing
+    if (activeColumn.id === targetColumn.id) {
+      const activeIndex = activeColumn.tasks.findIndex(t => t.id === activeId);
+      if (activeIndex === targetOrder || activeIndex === targetOrder - 1) {
+        return; // No change needed
+      }
+    }
+
+    // Call Convex mutation to move the task
+    try {
+      await moveTaskMutation({
+        taskId: activeId as Id<"tasks">,
+        targetColumnId: targetColumn.id,
+        targetOrder,
+      });
+    } catch (error) {
+      console.error('Error moving task:', error);
     }
   };
 
-  const handleAddTask = (columnId: string, newTask: Omit<Task, 'id' | 'createdAt'>) => {
-    const task: Task = {
-      ...newTask,
-      id: uuidv4(),
-      createdAt: new Date().toISOString(),
-    };
-
-    setColumns(columns => columns.map(column => {
-      if (column.id === columnId) {
-        return {
-          ...column,
-          tasks: [...column.tasks, task]
-        };
-      }
-      return column;
-    }));
+  const handleAddTask = async (columnId: string, newTask: Omit<Task, 'id' | 'createdAt'>) => {
+    try {
+      await createTaskMutation({
+        title: newTask.title,
+        description: newTask.description,
+        priority: newTask.priority,
+        dueDate: newTask.dueDate,
+        columnId: columnId as ColumnId,
+      });
+    } catch (error) {
+      console.error('Error creating task:', error);
+    }
   };
 
-  const handleDeleteTask = (taskId: string) => {
-    setColumns(columns => columns.map(column => ({
-      ...column,
-      tasks: column.tasks.filter(task => task.id !== taskId)
-    })));
+  const handleDeleteTask = async (taskId: string) => {
+    try {
+      await deleteTaskMutation({
+        id: taskId as Id<"tasks">,
+      });
+    } catch (error) {
+      console.error('Error deleting task:', error);
+    }
   };
 
-  const handleUpdateTask = (taskId: string, updates: Partial<Task>) => {
-    setColumns(columns => columns.map(column => ({
-      ...column,
-      tasks: column.tasks.map(task => 
-        task.id === taskId ? { ...task, ...updates } : task
-      )
-    })));
+  const handleUpdateTask = async (taskId: string, updates: Partial<Task>) => {
+    try {
+      await updateTaskMutation({
+        id: taskId as Id<"tasks">,
+        title: updates.title,
+        description: updates.description,
+        priority: updates.priority,
+        dueDate: updates.dueDate,
+      });
+    } catch (error) {
+      console.error('Error updating task:', error);
+    }
   };
+
+  const handleSeedSampleData = async () => {
+    try {
+      await seedSampleDataMutation();
+    } catch (error) {
+      console.error('Error seeding sample data:', error);
+    }
+  };
+
+  // Check if there are any tasks
+  const totalTasks = convexTasks?.length || 0;
+  const isLoading = convexTasks === undefined;
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-center space-y-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="text-gray-600">Loading tasks...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show empty state if no tasks
+  if (totalTasks === 0) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-center space-y-4">
+          <div className="text-gray-400">
+            <svg
+              className="w-24 h-24 mx-auto"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+              />
+            </svg>
+          </div>
+          <h3 className="text-xl font-semibold text-gray-900">No tasks yet</h3>
+          <p className="text-gray-600 max-w-md">
+            Get started by seeding some sample tasks or create your first task in a column.
+          </p>
+          <button
+            onClick={handleSeedSampleData}
+            className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+          >
+            <span>Seed Sample Data</span>
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <DndContext
