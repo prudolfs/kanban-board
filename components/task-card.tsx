@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import { useRouter } from 'next/navigation'
 import { Task } from '../types'
 import { Calendar, Flag, Trash2, Edit3, Check, X } from 'lucide-react'
 
@@ -8,19 +9,14 @@ interface TaskCardProps {
   task: Task
   onDelete: (taskId: string) => void
   onUpdate: (taskId: string, updates: Partial<Task>) => void
-  onPreview: (task: Task) => void
 }
 
-export function TaskCard({
-  task,
-  onDelete,
-  onUpdate,
-  onPreview,
-}: TaskCardProps) {
+export function TaskCard({ task, onDelete, onUpdate }: TaskCardProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [editTitle, setEditTitle] = useState(task.title)
   const [editDescription, setEditDescription] = useState(task.description || '')
   const mouseDownPos = useRef<{ x: number; y: number } | null>(null)
+  const router = useRouter()
 
   const {
     attributes,
@@ -80,7 +76,7 @@ export function TaskCard({
   }
 
   const handleCardClick = (e: React.MouseEvent) => {
-    // Don't open preview if:
+    // Don't navigate if:
     // - Editing mode is active
     // - Currently dragging
     // - Mouse moved significantly (was a drag, not a click)
@@ -103,7 +99,8 @@ export function TaskCard({
     }
 
     mouseDownPos.current = null
-    onPreview(task)
+    // Navigate to task page
+    router.push(`/tasks/${task.id}`)
   }
 
   // Merge drag listeners with our mouse down handler

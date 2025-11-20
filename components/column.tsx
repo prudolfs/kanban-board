@@ -10,7 +10,6 @@ interface ColumnProps {
   onAddTask: (columnId: string, task: Omit<Task, 'id' | 'createdAt'>) => void
   onDeleteTask: (taskId: string) => void
   onUpdateTask: (taskId: string, updates: Partial<Task>) => void
-  onPreviewTask: (task: Task) => void
 }
 
 export function Column({
@@ -18,7 +17,6 @@ export function Column({
   onAddTask,
   onDeleteTask,
   onUpdateTask,
-  onPreviewTask,
 }: ColumnProps) {
   const [isAddingTask, setIsAddingTask] = useState(false)
   const [newTaskTitle, setNewTaskTitle] = useState('')
@@ -94,7 +92,6 @@ export function Column({
                   task={task}
                   onDelete={onDeleteTask}
                   onUpdate={onUpdateTask}
-                  onPreview={onPreviewTask}
                 />
               ))}
             </div>
