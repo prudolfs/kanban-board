@@ -2,22 +2,40 @@
 import { query, mutation } from './_generated/server'
 import { v } from 'convex/values'
 import type { Id } from './_generated/dataModel'
+import type { QueryCtx, MutationCtx } from './_generated/server'
 import { authComponent } from './auth'
 import { components } from './_generated/api'
 
+// Type for user object from better-auth
+type AuthUser = {
+  _id?: string | number
+  userId?: string
+  id?: string
+  email?: string
+  name?: string | null
+  image?: string | null
+  [key: string]: unknown
+}
+
 // Helper to get current user ID
-async function getCurrentUserId(ctx: any) {
+async function getCurrentUserId(ctx: QueryCtx | MutationCtx) {
   const user = await authComponent.safeGetAuthUser(ctx)
   if (!user) {
     throw new Error('Not authenticated')
   }
   // Use _id as the primary identifier, fallback to userId field for compatibility
-  return String((user as any)._id || (user as any).userId || user._id)
+  const authUser = user as AuthUser
+  return String(
+    authUser._id ||
+      authUser.userId ||
+      authUser.id ||
+      (user as { _id: string })._id,
+  )
 }
 
 // Helper to check if user is board member
 async function isBoardMember(
-  ctx: any,
+  ctx: QueryCtx | MutationCtx,
   boardId: Id<'boards'>,
   userId?: string,
 ): Promise<boolean> {
@@ -25,7 +43,7 @@ async function isBoardMember(
 
   const membership = await ctx.db
     .query('boardMembers')
-    .filter((q: any) =>
+    .filter((q) =>
       q.and(
         q.eq(q.field('boardId'), boardId),
         q.eq(q.field('userId'), currentUserId),
@@ -38,7 +56,7 @@ async function isBoardMember(
 
 // Helper to check if user is board owner
 async function isBoardOwner(
-  ctx: any,
+  ctx: QueryCtx | MutationCtx,
   boardId: Id<'boards'>,
   userId?: string,
 ): Promise<boolean> {
@@ -56,12 +74,18 @@ export const getBoards = query({
       return []
     }
 
-    const userId = String((user as any)._id || (user as any).userId || user._id)
+    const authUser = user as AuthUser
+    const userId = String(
+      authUser._id ||
+        authUser.userId ||
+        authUser.id ||
+        (user as { _id: string })._id,
+    )
 
     // Get all board memberships for this user
     const memberships = await ctx.db
       .query('boardMembers')
-      .filter((q: any) => q.eq(q.field('userId'), userId))
+      .filter((q) => q.eq(q.field('userId'), userId))
       .collect()
 
     const boardIds = memberships.map((m) => m.boardId)
@@ -119,7 +143,7 @@ export const getBoard = query({
     // Get all board members
     const memberships = await ctx.db
       .query('boardMembers')
-      .filter((q: any) => q.eq(q.field('boardId'), args.id))
+      .filter((q) => q.eq(q.field('boardId'), args.id))
       .collect()
 
     // Get user details for each member
@@ -249,7 +273,7 @@ export const deleteBoard = mutation({
     // Delete all board members
     const memberships = await ctx.db
       .query('boardMembers')
-      .filter((q: any) => q.eq(q.field('boardId'), args.id))
+      .filter((q) => q.eq(q.field('boardId'), args.id))
       .collect()
 
     for (const membership of memberships) {
@@ -279,15 +303,15 @@ export const addBoardMember = mutation({
     const email = args.email.trim().toLowerCase()
 
     // Find user by email using better-auth adapter
-    let user: any = null
+    let user: AuthUser | null = null
     let userId: string | null = null
 
     // Try to find user by email using direct query
     // This is more reliable than using the adapter in mutations
     try {
-      const users = await (ctx.db as any)
+      const users = await ctx.db
         .query('user')
-        .filter((q: any) => q.eq(q.field('email'), email))
+        .filter((q) => q.eq(q.field('email'), email))
         .collect()
 
       if (users && users.length > 0) {
@@ -308,9 +332,8 @@ export const addBoardMember = mutation({
     // If user exists, add them directly
     if (user) {
       // Get user ID - better-auth uses _id as the primary identifier
-      userId = String(
-        (user as any)._id || (user as any).userId || (user as any).id,
-      )
+      const authUser = user as AuthUser
+      userId = String(authUser._id || authUser.userId || authUser.id)
       if (!userId) {
         throw new Error('Could not determine user ID')
       }
@@ -318,7 +341,7 @@ export const addBoardMember = mutation({
       // Check if user is already a member
       const existingMembership = await ctx.db
         .query('boardMembers')
-        .filter((q: any) =>
+        .filter((q) =>
           q.and(
             q.eq(q.field('boardId'), args.boardId),
             q.eq(q.field('userId'), userId),
@@ -344,7 +367,7 @@ export const addBoardMember = mutation({
     // User doesn't exist - check if there's already a pending invitation
     const existingInvitation = await ctx.db
       .query('boardInvitations')
-      .filter((q: any) =>
+      .filter((q) =>
         q.and(
           q.eq(q.field('boardId'), args.boardId),
           q.eq(q.field('email'), email),
@@ -414,7 +437,7 @@ export const removeBoardMember = mutation({
     // Find and delete membership
     const membership = await ctx.db
       .query('boardMembers')
-      .filter((q: any) =>
+      .filter((q) =>
         q.and(
           q.eq(q.field('boardId'), args.boardId),
           q.eq(q.field('userId'), args.userId),
@@ -444,7 +467,7 @@ export const getBoardMembers = query({
 
     const memberships = await ctx.db
       .query('boardMembers')
-      .filter((q: any) => q.eq(q.field('boardId'), args.boardId))
+      .filter((q) => q.eq(q.field('boardId'), args.boardId))
       .collect()
 
     // Get user details
@@ -495,7 +518,7 @@ export const getBoardInvitations = query({
 
     const invitations = await ctx.db
       .query('boardInvitations')
-      .filter((q: any) =>
+      .filter((q) =>
         q.and(
           q.eq(q.field('boardId'), args.boardId),
           q.eq(q.field('status'), 'pending'),
@@ -528,14 +551,15 @@ export const getMyInvitations = query({
       return []
     }
 
-    const userEmail = (user as any).email
+    const authUser = user as AuthUser
+    const userEmail = authUser.email
     if (!userEmail) {
       return []
     }
 
     const invitations = await ctx.db
       .query('boardInvitations')
-      .filter((q: any) =>
+      .filter((q) =>
         q.and(
           q.eq(q.field('email'), userEmail.toLowerCase()),
           q.eq(q.field('status'), 'pending'),
@@ -579,7 +603,8 @@ export const acceptBoardInvitation = mutation({
   handler: async (ctx, args) => {
     const userId = await getCurrentUserId(ctx)
     const user = await authComponent.getAnyUserById(ctx, userId)
-    const userEmail = (user as any)?.email
+    const authUser = user as AuthUser | null
+    const userEmail = authUser?.email
 
     if (!userEmail) {
       throw new Error('User email not found')
@@ -612,7 +637,7 @@ export const acceptBoardInvitation = mutation({
     // Check if user is already a member
     const existingMembership = await ctx.db
       .query('boardMembers')
-      .filter((q: any) =>
+      .filter((q) =>
         q.and(
           q.eq(q.field('boardId'), invitation.boardId),
           q.eq(q.field('userId'), userId),
@@ -659,7 +684,8 @@ export const cancelBoardInvitation = mutation({
     const user = await authComponent
       .getAnyUserById(ctx, userId)
       .catch(() => null)
-    const userEmail = (user as any)?.email
+    const authUser = user as AuthUser | null
+    const userEmail = authUser?.email
     const isInvitee =
       userEmail && invitation.email.toLowerCase() === userEmail.toLowerCase()
 

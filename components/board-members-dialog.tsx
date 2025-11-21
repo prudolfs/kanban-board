@@ -19,6 +19,24 @@ import type { Id } from '@/convex/_generated/dataModel'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { toast } from 'sonner'
 
+// Types for board members and invitations
+type BoardMember = {
+  userId: string
+  role: string
+  joinedAt: string
+  email: string | null
+  name: string | null
+  image: string | null
+}
+
+type BoardInvitation = {
+  _id: Id<'boardInvitations'>
+  email: string
+  invitedBy: string
+  createdAt: string
+  expiresAt: string
+}
+
 interface BoardMembersDialogProps {
   boardId: Id<'boards'>
   isOwner: boolean
@@ -62,8 +80,10 @@ export function BoardMembersDialog({
       } else {
         toast.success('Invitation sent successfully')
       }
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to add member')
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Failed to add member'
+      toast.error(message)
     } finally {
       setIsAdding(false)
     }
@@ -78,8 +98,10 @@ export function BoardMembersDialog({
     try {
       await cancelInvitationMutation({ invitationId })
       toast.success('Invitation cancelled')
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to cancel invitation')
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Failed to cancel invitation'
+      toast.error(message)
     }
   }
 
@@ -93,8 +115,10 @@ export function BoardMembersDialog({
         userId,
       })
       toast.success('Member removed successfully')
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to remove member')
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Failed to remove member'
+      toast.error(message)
     }
   }
 
@@ -156,7 +180,7 @@ export function BoardMembersDialog({
             <div className="space-y-2">
               <Label>Pending Invitations ({pendingInvitations.length})</Label>
               <div className="max-h-[200px] space-y-2 overflow-y-auto">
-                {pendingInvitations.map((invitation: any) => (
+                {pendingInvitations.map((invitation: BoardInvitation) => (
                   <div
                     key={invitation._id}
                     className="flex items-center justify-between rounded-lg border border-dashed p-3"
@@ -196,7 +220,7 @@ export function BoardMembersDialog({
           <div className="space-y-2">
             <Label>Members ({members.length})</Label>
             <div className="max-h-[300px] space-y-2 overflow-y-auto">
-              {members.map((member: any) => (
+              {members.map((member: BoardMember) => (
                 <div
                   key={member.userId}
                   className="flex items-center justify-between rounded-lg border p-3"

@@ -27,6 +27,7 @@ Built with cutting-edge technologies for maximum performance and developer exper
 ## 🚀 Features
 
 ### Core Functionality
+
 - **Kanban Boards** - Organize tasks in customizable boards with color-coded themes
 - **Drag & Drop** - Smooth, intuitive task movement between columns (To Do, Doing, Done)
 - **Real-time Updates** - Changes sync instantly across all connected clients via Convex
@@ -35,12 +36,14 @@ Built with cutting-edge technologies for maximum performance and developer exper
 - **Optimistic Updates** - UI updates immediately for snappy, responsive feel
 
 ### Collaboration
+
 - **Board Members** - Invite team members to collaborate on boards
 - **Invitations System** - Email-based invitations with pending invitation management
 - **Role-based Access** - Owner and member roles with appropriate permissions
 - **Member Management** - Add, remove, and manage board collaborators
 
 ### User Experience
+
 - **Modern UI** - Clean, gradient-based design with smooth animations
 - **Responsive Design** - Works beautifully on desktop, tablet, and mobile
 - **Fast Performance** - Optimized with virtualization, code splitting, and efficient rendering
@@ -57,20 +60,24 @@ Built with cutting-edge technologies for maximum performance and developer exper
 ### Installation
 
 1. **Clone the repository**
+
    ```bash
    git clone <your-repo-url>
    cd kanban-board
    ```
 
 2. **Install dependencies**
+
    ```bash
    bun install
    ```
 
 3. **Set up Convex**
+
    ```bash
    bunx convex dev
    ```
+
    This will:
    - Create a new Convex project (or connect to existing)
    - Generate environment variables
@@ -78,14 +85,16 @@ Built with cutting-edge technologies for maximum performance and developer exper
    - Start the Convex dev server
 
 4. **Configure environment variables**
-   
+
    Create a `.env.local` file with:
+
    ```env
    NEXT_PUBLIC_CONVEX_URL=your-convex-url
    CONVEX_SITE_URL=http://localhost:3000
    ```
 
 5. **Run the development server**
+
    ```bash
    bun run dev
    # or with Bun's native runtime
@@ -93,7 +102,7 @@ Built with cutting-edge technologies for maximum performance and developer exper
    ```
 
 6. **Open your browser**
-   
+
    Navigate to [http://localhost:3000](http://localhost:3000)
 
 ## 📜 Available Scripts

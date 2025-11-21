@@ -13,6 +13,18 @@ import { useRouter } from 'next/navigation'
 import type { Id } from '@/convex/_generated/dataModel'
 import Link from 'next/link'
 
+// Type for invitation from getMyInvitations
+type Invitation = {
+  _id: Id<'boardInvitations'>
+  boardId: Id<'boards'>
+  boardTitle: string
+  boardColor?: string
+  invitedBy: string
+  inviterName: string
+  createdAt: string
+  expiresAt: string
+}
+
 export default function Home() {
   const router = useRouter()
   const currentUser = useQuery(api.auth.getCurrentUser)
@@ -33,8 +45,10 @@ export default function Home() {
         toast.success('Invitation accepted!')
         router.push(`/boards/${result.boardId}`)
       }
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to accept invitation')
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Failed to accept invitation'
+      toast.error(message)
     }
   }
 
@@ -110,7 +124,7 @@ export default function Home() {
               </h2>
             </div>
             <div className="space-y-2">
-              {invitations.map((invitation: any) => (
+              {invitations.map((invitation: Invitation) => (
                 <div
                   key={invitation._id}
                   className="flex items-center justify-between rounded-lg border border-blue-100 bg-white p-4"

@@ -14,21 +14,32 @@ import { api } from '@/convex/_generated/api'
 import { LogOut, User } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 
+// Type for user from better-auth
+type User = {
+  id?: string
+  name?: string | null
+  email?: string | null
+  image?: string | null
+  [key: string]: unknown
+} | null
+
 export function UserMenu() {
-  const [session, setSession] = useState<any>(null)
+  const [sessionUser, setSessionUser] = useState<User>(null)
   const [isLoading, setIsLoading] = useState(true)
   const currentUser = useQuery(api.auth.getCurrentUser)
 
   useEffect(() => {
     authClient.getSession().then((result) => {
-      setSession(result.data?.session || null)
+      // The session might have user data, or we can get it from the query
+      const user = result.data?.user || null
+      setSessionUser(user)
       setIsLoading(false)
     })
   }, [])
 
   const handleSignOut = async () => {
     await authClient.signOut()
-    setSession(null)
+    setSessionUser(null)
     window.location.href = '/'
   }
 
@@ -36,7 +47,7 @@ export function UserMenu() {
     return <div className="h-8 w-8 animate-pulse rounded-full bg-gray-300" />
   }
 
-  const user = session?.user || currentUser
+  const user = sessionUser || currentUser
   if (!user) return null
 
   const userInitials = user?.name
@@ -53,7 +64,10 @@ export function UserMenu() {
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="h-8 w-8 rounded-full p-0">
           <Avatar className="h-8 w-8">
-            <AvatarImage src={user.image} alt={user.name || user.email} />
+            <AvatarImage
+              src={user.image || undefined}
+              alt={user.name || user.email || undefined}
+            />
             <AvatarFallback>{userInitials}</AvatarFallback>
           </Avatar>
         </Button>

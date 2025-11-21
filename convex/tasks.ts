@@ -2,24 +2,42 @@
 import { query, mutation } from './_generated/server'
 import { v } from 'convex/values'
 import type { Id } from './_generated/dataModel'
+import type { QueryCtx, MutationCtx } from './_generated/server'
 import { authComponent } from './auth'
 
+// Type for user object from better-auth
+type AuthUser = {
+  _id?: string | number
+  userId?: string
+  id?: string
+  email?: string
+  name?: string | null
+  image?: string | null
+  [key: string]: unknown
+}
+
 // Helper to get current user ID
-async function getCurrentUserId(ctx: any) {
+async function getCurrentUserId(ctx: QueryCtx | MutationCtx) {
   const user = await authComponent.safeGetAuthUser(ctx)
   if (!user) throw new Error('Not authenticated')
-  return String((user as any)._id || (user as any).userId || user._id)
+  const authUser = user as AuthUser
+  return String(
+    authUser._id ||
+      authUser.userId ||
+      authUser.id ||
+      (user as { _id: string })._id,
+  )
 }
 
 // Helper to check if user is board member
 async function isBoardMember(
-  ctx: any,
+  ctx: QueryCtx | MutationCtx,
   boardId: Id<'boards'>,
   userId: string,
 ): Promise<boolean> {
   const membership = await ctx.db
     .query('boardMembers')
-    .filter((q: any) =>
+    .filter((q) =>
       q.and(q.eq(q.field('boardId'), boardId), q.eq(q.field('userId'), userId)),
     )
     .first()
@@ -42,7 +60,7 @@ export const getTasks = query({
     // Get all tasks for the specified board
     const tasks = await ctx.db
       .query('tasks')
-      .filter((q: any) => q.eq(q.field('boardId'), args.boardId))
+      .filter((q) => q.eq(q.field('boardId'), args.boardId))
       .collect()
 
     // Sort by columnId first, then by order
@@ -98,7 +116,7 @@ export const searchTasks = query({
     // Get all tasks for the specified board
     const tasks = await ctx.db
       .query('tasks')
-      .filter((q: any) => q.eq(q.field('boardId'), args.boardId))
+      .filter((q) => q.eq(q.field('boardId'), args.boardId))
       .collect()
 
     // Filter tasks by title or description (case-insensitive)
@@ -145,7 +163,7 @@ export const createTask = mutation({
     // Get the count of tasks in the target column for this board to set the order
     const existingTasks = await ctx.db
       .query('tasks')
-      .filter((q: any) =>
+      .filter((q) =>
         q.and(
           q.eq(q.field('columnId'), args.columnId),
           q.eq(q.field('boardId'), args.boardId),
@@ -202,7 +220,7 @@ export const updateTask = mutation({
       if (task.columnId !== updates.columnId) {
         const newColumnTasks = await ctx.db
           .query('tasks')
-          .filter((q: any) =>
+          .filter((q) =>
             q.and(
               q.eq(q.field('columnId'), updates.columnId),
               q.eq(q.field('boardId'), task.boardId),
@@ -247,7 +265,7 @@ export const moveTask = mutation({
       // Get all tasks in the column for this board
       const columnTasks = await ctx.db
         .query('tasks')
-        .filter((q: any) =>
+        .filter((q) =>
           q.and(
             q.eq(q.field('columnId'), args.targetColumnId),
             q.eq(q.field('boardId'), boardId),
@@ -272,7 +290,7 @@ export const moveTask = mutation({
       // Remove from source column and reorder
       const sourceTasks = await ctx.db
         .query('tasks')
-        .filter((q: any) =>
+        .filter((q) =>
           q.and(
             q.eq(q.field('columnId'), sourceColumnId),
             q.eq(q.field('boardId'), boardId),
@@ -292,7 +310,7 @@ export const moveTask = mutation({
       // Add to target column
       const targetTasks = await ctx.db
         .query('tasks')
-        .filter((q: any) =>
+        .filter((q) =>
           q.and(
             q.eq(q.field('columnId'), args.targetColumnId),
             q.eq(q.field('boardId'), boardId),
@@ -339,7 +357,7 @@ export const deleteTask = mutation({
     // Reorder remaining tasks in the same column and board
     const remainingTasks = await ctx.db
       .query('tasks')
-      .filter((q: any) =>
+      .filter((q) =>
         q.and(
           q.eq(q.field('columnId'), task.columnId),
           q.eq(q.field('boardId'), task.boardId),
@@ -371,7 +389,7 @@ export const seedSampleData = mutation({
     // Check if tasks already exist for this board
     const existingTasks = await ctx.db
       .query('tasks')
-      .filter((q: any) => q.eq(q.field('boardId'), args.boardId))
+      .filter((q) => q.eq(q.field('boardId'), args.boardId))
       .collect()
     if (existingTasks.length > 0) {
       return { message: 'Tasks already exist for this board. Skipping seed.' }
