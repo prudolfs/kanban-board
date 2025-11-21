@@ -15,6 +15,7 @@ type ConvexTask = {
   priority: 'low' | 'medium' | 'high'
   dueDate?: string
   columnId: 'todo' | 'doing' | 'done'
+  boardId: Id<'boards'>
   order: number
   createdAt: string
 }
@@ -69,15 +70,24 @@ export default function TaskPage() {
       await deleteTaskMutation({
         id: taskId as Id<'tasks'>,
       })
-      // Redirect to home after deletion
-      router.push('/')
+      // Redirect to board after deletion
+      if (convexTask?.boardId) {
+        router.push(`/boards/${convexTask.boardId}`)
+      } else {
+        router.push('/')
+      }
     } catch (error) {
       console.error('Error deleting task:', error)
     }
   }
 
   const handleClose = () => {
-    router.push('/')
+    // Redirect to board
+    if (convexTask?.boardId) {
+      router.push(`/boards/${convexTask.boardId}`)
+    } else {
+      router.push('/')
+    }
   }
 
   // Loading state

@@ -26,6 +26,7 @@ type ConvexTask = {
   priority: 'low' | 'medium' | 'high'
   dueDate?: string
   columnId: ColumnId
+  boardId: Id<'boards'>
   order: number
   createdAt: string
 }
@@ -60,9 +61,16 @@ function transformTask(convexTask: ConvexTask): Task {
   }
 }
 
-export function KanbanBoard() {
+interface KanbanBoardProps {
+  boardId: Id<'boards'>
+}
+
+export function KanbanBoard({ boardId }: KanbanBoardProps) {
   // Fetch tasks from Convex
-  const convexTasks = useQuery(api.tasks.getTasks)
+  const convexTasks = useQuery(
+    api.tasks.getTasks,
+    boardId ? { boardId } : 'skip',
+  )
 
   // Mutations
   const createTaskMutation = useMutation(api.tasks.createTask)
@@ -491,6 +499,7 @@ export function KanbanBoard() {
         priority: newTask.priority,
         dueDate: newTask.dueDate,
         columnId: columnId as ColumnId,
+        boardId,
       })
     } catch (error) {
       console.error('Error creating task:', error)
@@ -523,7 +532,7 @@ export function KanbanBoard() {
 
   const handleSeedSampleData = async () => {
     try {
-      await seedSampleDataMutation()
+      await seedSampleDataMutation({ boardId })
     } catch (error) {
       console.error('Error seeding sample data:', error)
     }
