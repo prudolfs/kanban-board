@@ -75,7 +75,7 @@ export function KanbanBoard() {
   const [optimisticUpdates, setOptimisticUpdates] = useState<
     Map<Id<'tasks'>, OptimisticUpdate>
   >(new Map())
-  
+
   // Ref to track optimistic updates for reading in callbacks
   const optimisticUpdatesRef = useRef(optimisticUpdates)
   optimisticUpdatesRef.current = optimisticUpdates
@@ -327,12 +327,12 @@ export function KanbanBoard() {
       // First, check if we have an existing optimistic update from handleDragOver
       // Use it if it exists, as it represents where the user actually dragged to
       const existingOptimisticUpdate = optimisticUpdatesRef.current.get(taskId)
-      
+
       let targetColumnId: ColumnId
       let targetOrder: number
       let previousColumnId: ColumnId
       let previousOrder: number
-      
+
       if (existingOptimisticUpdate) {
         // Use the optimistic update that was set during drag
         // This represents where the user actually dragged to
@@ -379,7 +379,10 @@ export function KanbanBoard() {
             (t) => t._id === overId,
           )
 
-          targetOrder = overTaskIndex >= 0 ? overTaskIndex : serverTasksInTargetColumn.length
+          targetOrder =
+            overTaskIndex >= 0
+              ? overTaskIndex
+              : serverTasksInTargetColumn.length
 
           // If moving within same column, adjust order based on direction
           if (previousColumnId === targetColumnId && activeId !== overId) {
@@ -387,13 +390,28 @@ export function KanbanBoard() {
               .filter((t) => t.columnId === targetColumnId)
               .sort((a, b) => a.order - b.order)
 
-            const currentIndex = allTasksInColumn.findIndex((t) => t._id === taskId)
-            const overTaskIndexInAll = allTasksInColumn.findIndex((t) => t._id === overId)
+            const currentIndex = allTasksInColumn.findIndex(
+              (t) => t._id === taskId,
+            )
+            const overTaskIndexInAll = allTasksInColumn.findIndex(
+              (t) => t._id === overId,
+            )
 
-            if (currentIndex >= 0 && overTaskIndexInAll >= 0 && currentIndex < overTaskIndexInAll) {
-              const tasksWithoutCurrent = allTasksInColumn.filter((t) => t._id !== taskId)
-              const newOverTaskIndex = tasksWithoutCurrent.findIndex((t) => t._id === overId)
-              targetOrder = newOverTaskIndex >= 0 ? newOverTaskIndex + 1 : tasksWithoutCurrent.length
+            if (
+              currentIndex >= 0 &&
+              overTaskIndexInAll >= 0 &&
+              currentIndex < overTaskIndexInAll
+            ) {
+              const tasksWithoutCurrent = allTasksInColumn.filter(
+                (t) => t._id !== taskId,
+              )
+              const newOverTaskIndex = tasksWithoutCurrent.findIndex(
+                (t) => t._id === overId,
+              )
+              targetOrder =
+                newOverTaskIndex >= 0
+                  ? newOverTaskIndex + 1
+                  : tasksWithoutCurrent.length
             }
           }
         }
