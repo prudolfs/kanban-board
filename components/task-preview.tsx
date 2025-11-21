@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { Task } from '../types'
 import {
-  ArrowLeft,
   Edit,
   Calendar,
   Flag,
@@ -125,22 +124,18 @@ export function TaskPreview({
       {/* Header */}
       <header className="border-b border-gray-200 bg-white px-6 py-4 shadow-sm">
         <div className="mx-auto flex max-w-7xl items-center justify-between">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={onClose}
-              className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Back to Board
-            </button>
-            <div className="hidden h-6 w-px bg-gray-300 md:block"></div>
+          <button
+            onClick={onClose}
+            className="inline-flex items-center gap-2 transition-colors hover:opacity-80"
+            aria-label="Back to board"
+          >
             <div className="flex items-center gap-2">
               <div className="rounded-lg bg-blue-600 p-2">
                 <Trello className="h-6 w-6 text-white" />
               </div>
               <h1 className="text-xl font-bold text-gray-900">TaskBoard</h1>
             </div>
-          </div>
+          </button>
           <div className="flex items-center gap-2">
             {isEditing ? (
               <>
