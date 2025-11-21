@@ -203,15 +203,9 @@ export function KanbanBoard() {
     [findTaskById],
   )
 
-  const handleDragOver = (event: DragOverEvent) => {
-    // Visual feedback only - actual move happens in handleDragEnd
-    // This allows for smooth visual updates while dragging
-  }
-
-  const handleDragEnd = useCallback(
-    async (event: DragEndEvent) => {
+  const handleDragOver = useCallback(
+    (event: DragOverEvent) => {
       const { active, over } = event
-      setActiveTask(null)
 
       if (!over || !convexTasks) return
 
@@ -229,11 +223,11 @@ export function KanbanBoard() {
         typeof overId === 'string' &&
         ['todo', 'doing', 'done'].includes(overId)
       ) {
-        // Dropped on a column
+        // Dragging over a column
         targetColumn = columns.find((col) => col.id === overId)
         targetOrder = targetColumn?.tasks.length || 0
       } else {
-        // Dropped on another task
+        // Dragging over another task
         const overTaskColumn = findColumnByTaskId(overId)
         if (!overTaskColumn) return
 
@@ -268,9 +262,126 @@ export function KanbanBoard() {
       }
 
       // Find the current task from server data to get previous state
-      // Use server data (convexTasks) to get the true previous state, not optimistic state
       const currentTask = convexTasks.find((t) => t._id === taskId)
       if (!currentTask) return
+
+      const previousColumnId = currentTask.columnId
+      const targetColumnId = targetColumn.id as ColumnId
+
+      // Skip if no actual change
+      if (
+        previousColumnId === targetColumnId &&
+        currentTask.order === targetOrder
+      ) {
+        return
+      }
+
+      // Apply optimistic update immediately for visual feedback
+      // Use functional update to avoid stale closure issues
+      setOptimisticUpdates((prev) => {
+        // Check if we already have this exact update
+        const existingUpdate = prev.get(taskId)
+        if (
+          existingUpdate &&
+          existingUpdate.targetColumnId === targetColumnId &&
+          existingUpdate.targetOrder === targetOrder
+        ) {
+          return prev // No change needed
+        }
+
+        const optimisticUpdate: OptimisticUpdate = {
+          taskId,
+          targetColumnId,
+          targetOrder,
+          previousColumnId,
+          previousOrder: currentTask.order,
+        }
+
+        const next = new Map(prev)
+        next.set(taskId, optimisticUpdate)
+        return next
+      })
+    },
+    [convexTasks, columns, findColumnByTaskId],
+  )
+
+  const handleDragEnd = useCallback(
+    async (event: DragEndEvent) => {
+      const { active, over } = event
+      setActiveTask(null)
+
+      if (!over || !convexTasks) {
+        // Clear any optimistic updates if drag was cancelled
+        setOptimisticUpdates(new Map())
+        return
+      }
+
+      const activeId = active.id as string
+      const overId = over.id as string
+      const taskId = activeId as Id<'tasks'>
+
+      const activeColumn = findColumnByTaskId(activeId)
+
+      // Determine target column (could be a column drop zone or another task)
+      let targetColumn: ColumnType | undefined
+      let targetOrder: number
+
+      if (
+        typeof overId === 'string' &&
+        ['todo', 'doing', 'done'].includes(overId)
+      ) {
+        // Dropped on a column
+        targetColumn = columns.find((col) => col.id === overId)
+        targetOrder = targetColumn?.tasks.length || 0
+      } else {
+        // Dropped on another task
+        const overTaskColumn = findColumnByTaskId(overId)
+        if (!overTaskColumn) {
+          setOptimisticUpdates(new Map())
+          return
+        }
+
+        targetColumn = overTaskColumn
+        const overTaskIndex = overTaskColumn.tasks.findIndex(
+          (t) => t.id === overId,
+        )
+        targetOrder =
+          overTaskIndex >= 0 ? overTaskIndex : overTaskColumn.tasks.length
+
+        // If moving within same column and dragging down, adjust order
+        if (activeColumn === targetColumn && activeId !== overId) {
+          const activeIndex = activeColumn.tasks.findIndex(
+            (t) => t.id === activeId,
+          )
+          if (activeIndex < overTaskIndex) {
+            targetOrder = overTaskIndex + 1
+          }
+        }
+      }
+
+      if (!activeColumn || !targetColumn) {
+        setOptimisticUpdates(new Map())
+        return
+      }
+
+      // If moving within the same column and same position, do nothing
+      if (activeColumn.id === targetColumn.id) {
+        const activeIndex = activeColumn.tasks.findIndex(
+          (t) => t.id === activeId,
+        )
+        if (activeIndex === targetOrder || activeIndex === targetOrder - 1) {
+          setOptimisticUpdates(new Map())
+          return // No change needed
+        }
+      }
+
+      // Find the current task from server data to get previous state
+      // Use server data (convexTasks) to get the true previous state, not optimistic state
+      const currentTask = convexTasks.find((t) => t._id === taskId)
+      if (!currentTask) {
+        setOptimisticUpdates(new Map())
+        return
+      }
 
       const previousColumnId = currentTask.columnId
       const previousOrder = currentTask.order
@@ -281,19 +392,29 @@ export function KanbanBoard() {
         previousColumnId === targetColumnId &&
         previousOrder === targetOrder
       ) {
+        setOptimisticUpdates(new Map())
         return
       }
 
-      // Apply optimistic update immediately
-      const optimisticUpdate: OptimisticUpdate = {
-        taskId,
-        targetColumnId,
-        targetOrder,
-        previousColumnId,
-        previousOrder,
-      }
-
+      // Ensure optimistic update is set (in case handleDragOver didn't fire)
       setOptimisticUpdates((prev) => {
+        const existingUpdate = prev.get(taskId)
+        if (
+          existingUpdate &&
+          existingUpdate.targetColumnId === targetColumnId &&
+          existingUpdate.targetOrder === targetOrder
+        ) {
+          return prev // Already have this update
+        }
+
+        const optimisticUpdate: OptimisticUpdate = {
+          taskId,
+          targetColumnId,
+          targetOrder,
+          previousColumnId,
+          previousOrder,
+        }
+
         const next = new Map(prev)
         next.set(taskId, optimisticUpdate)
         return next
