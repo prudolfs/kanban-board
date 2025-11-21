@@ -35,8 +35,14 @@ export function BoardMembersDialog({
   const board = useQuery(api.boards.getBoard, { id: boardId })
   const addMemberMutation = useMutation(api.boards.addBoardMember)
   const removeMemberMutation = useMutation(api.boards.removeBoardMember)
+  const cancelInvitationMutation = useMutation(api.boards.cancelBoardInvitation)
+  const invitations = useQuery(
+    api.boards.getBoardInvitations,
+    isOwner ? { boardId } : 'skip',
+  )
 
   const members = board?.members || []
+  const pendingInvitations = invitations || []
 
   const handleAddMember = async () => {
     if (!email.trim()) {
@@ -46,16 +52,34 @@ export function BoardMembersDialog({
 
     setIsAdding(true)
     try {
-      await addMemberMutation({
+      const result = await addMemberMutation({
         boardId,
         email: email.trim(),
       })
       setEmail('')
-      toast.success('Member added successfully')
+      if (result.added) {
+        toast.success('Member added successfully')
+      } else {
+        toast.success('Invitation sent successfully')
+      }
     } catch (error: any) {
       toast.error(error.message || 'Failed to add member')
     } finally {
       setIsAdding(false)
+    }
+  }
+
+  const handleCancelInvitation = async (
+    invitationId: Id<'boardInvitations'>,
+    email: string,
+  ) => {
+    if (!confirm(`Cancel invitation for ${email}?`)) return
+
+    try {
+      await cancelInvitationMutation({ invitationId })
+      toast.success('Invitation cancelled')
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to cancel invitation')
     }
   }
 
@@ -124,6 +148,47 @@ export function BoardMembersDialog({
                 <Button onClick={handleAddMember} disabled={isAdding}>
                   <UserPlus className="h-4 w-4" />
                 </Button>
+              </div>
+            </div>
+          )}
+
+          {pendingInvitations.length > 0 && isOwner && (
+            <div className="space-y-2">
+              <Label>Pending Invitations ({pendingInvitations.length})</Label>
+              <div className="max-h-[200px] space-y-2 overflow-y-auto">
+                {pendingInvitations.map((invitation: any) => (
+                  <div
+                    key={invitation._id}
+                    className="flex items-center justify-between rounded-lg border border-dashed p-3"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-8 w-8">
+                        <AvatarFallback>
+                          {invitation.email?.[0]?.toUpperCase() || '?'}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="text-sm font-medium">
+                          {invitation.email}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          Invited{' '}
+                          {new Date(invitation.createdAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() =>
+                        handleCancelInvitation(invitation._id, invitation.email)
+                      }
+                      className="h-8 w-8 p-0"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
               </div>
             </div>
           )}

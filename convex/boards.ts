@@ -275,66 +275,118 @@ export const addBoardMember = mutation({
       throw new Error('Only board owner can add members')
     }
 
-    // Find user by email - query better-auth user table directly
-    // The better-auth component creates a 'user' table
-    let user = null
-    let userId = null
+    // Normalize email
+    const email = args.email.trim().toLowerCase()
 
+    // Find user by email using better-auth adapter
+    let user: any = null
+    let userId: string | null = null
+
+    // Try to find user by email using direct query
+    // This is more reliable than using the adapter in mutations
     try {
-      // Try to query the user table directly
-      // better-auth typically creates a table called 'user'
       const users = await (ctx.db as any)
         .query('user')
-        .filter((q: any) => q.eq(q.field('email'), args.email))
+        .filter((q: any) => q.eq(q.field('email'), email))
         .collect()
 
       if (users && users.length > 0) {
         user = users[0]
       }
     } catch (error) {
-      // Table might not exist or query failed
-      // This is expected if the user table hasn't been created yet
+      // If direct query fails, try using better-auth's adapter as fallback
+      try {
+        user = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+          model: 'user',
+          where: [{ field: 'email', value: email, operator: 'eq' }],
+        })
+      } catch (fallbackError) {
+        // Both methods failed, user likely doesn't exist - will create invitation
+      }
     }
 
-    if (!user) {
-      throw new Error(
-        'User not found with this email. Make sure they have signed up first.',
+    // If user exists, add them directly
+    if (user) {
+      // Get user ID - better-auth uses _id as the primary identifier
+      userId = String(
+        (user as any)._id || (user as any).userId || (user as any).id,
       )
+      if (!userId) {
+        throw new Error('Could not determine user ID')
+      }
+
+      // Check if user is already a member
+      const existingMembership = await ctx.db
+        .query('boardMembers')
+        .filter((q: any) =>
+          q.and(
+            q.eq(q.field('boardId'), args.boardId),
+            q.eq(q.field('userId'), userId),
+          ),
+        )
+        .first()
+
+      if (existingMembership) {
+        throw new Error('User is already a board member')
+      }
+
+      // Add member
+      await ctx.db.insert('boardMembers', {
+        boardId: args.boardId,
+        userId: userId,
+        role: 'member',
+        joinedAt: new Date().toISOString(),
+      })
+
+      return { success: true, added: true }
     }
 
-    // Get user ID - better-auth uses _id as the primary identifier
-    // The _id is a Convex Id, convert to string
-    userId = String(
-      (user as any)._id || (user as any).userId || (user as any).id,
-    )
-    if (!userId) {
-      throw new Error('Could not determine user ID')
-    }
-
-    // Check if user is already a member
-    const existingMembership = await ctx.db
-      .query('boardMembers')
+    // User doesn't exist - check if there's already a pending invitation
+    const existingInvitation = await ctx.db
+      .query('boardInvitations')
       .filter((q: any) =>
         q.and(
           q.eq(q.field('boardId'), args.boardId),
-          q.eq(q.field('userId'), userId),
+          q.eq(q.field('email'), email),
+          q.eq(q.field('status'), 'pending'),
         ),
       )
       .first()
 
-    if (existingMembership) {
-      throw new Error('User is already a board member')
+    if (existingInvitation) {
+      throw new Error('Invitation already sent to this email')
     }
 
-    // Add member
-    await ctx.db.insert('boardMembers', {
+    // Get board details for the invitation
+    const board = await ctx.db.get(args.boardId)
+    if (!board) {
+      throw new Error('Board not found')
+    }
+
+    // Get current user for invitation sender
+    const currentUserId = await getCurrentUserId(ctx)
+    const currentUser = await authComponent.getAnyUserById(ctx, currentUserId)
+
+    // Create invitation
+    const invitationId = await ctx.db.insert('boardInvitations', {
       boardId: args.boardId,
-      userId: userId,
-      role: 'member',
-      joinedAt: new Date().toISOString(),
+      email: email,
+      invitedBy: currentUserId,
+      status: 'pending',
+      createdAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days
     })
 
-    return { success: true }
+    // TODO: Send email invitation
+    // For now, we'll just create the invitation record
+    // In production, you would integrate with an email service like Resend, SendGrid, etc.
+
+    return {
+      success: true,
+      added: false,
+      invitationId,
+      message: 'Invitation sent',
+    }
   },
 })
 
@@ -426,5 +478,200 @@ export const getBoardMembers = query({
     )
 
     return members
+  },
+})
+
+// Get pending invitations for a board
+export const getBoardInvitations = query({
+  args: {
+    boardId: v.id('boards'),
+  },
+  handler: async (ctx, args) => {
+    // Check if user is owner
+    const isOwner = await isBoardOwner(ctx, args.boardId)
+    if (!isOwner) {
+      throw new Error('Only board owner can view invitations')
+    }
+
+    const invitations = await ctx.db
+      .query('boardInvitations')
+      .filter((q: any) =>
+        q.and(
+          q.eq(q.field('boardId'), args.boardId),
+          q.eq(q.field('status'), 'pending'),
+        ),
+      )
+      .collect()
+
+    // Filter out expired invitations
+    const now = new Date().toISOString()
+    const validInvitations = invitations.filter(
+      (inv) => inv.expiresAt && inv.expiresAt > now,
+    )
+
+    return validInvitations.map((inv) => ({
+      _id: inv._id,
+      email: inv.email,
+      invitedBy: inv.invitedBy,
+      createdAt: inv.createdAt,
+      expiresAt: inv.expiresAt,
+    }))
+  },
+})
+
+// Get invitations for the current user
+export const getMyInvitations = query({
+  args: {},
+  handler: async (ctx) => {
+    const user = await authComponent.safeGetAuthUser(ctx)
+    if (!user) {
+      return []
+    }
+
+    const userEmail = (user as any).email
+    if (!userEmail) {
+      return []
+    }
+
+    const invitations = await ctx.db
+      .query('boardInvitations')
+      .filter((q: any) =>
+        q.and(
+          q.eq(q.field('email'), userEmail.toLowerCase()),
+          q.eq(q.field('status'), 'pending'),
+        ),
+      )
+      .collect()
+
+    // Filter out expired invitations and get board details
+    const now = new Date().toISOString()
+    const validInvitations = await Promise.all(
+      invitations
+        .filter((inv) => inv.expiresAt && inv.expiresAt > now)
+        .map(async (inv) => {
+          const board = await ctx.db.get(inv.boardId)
+          const inviter = await authComponent
+            .getAnyUserById(ctx, inv.invitedBy)
+            .catch(() => null)
+
+          return {
+            _id: inv._id,
+            boardId: inv.boardId,
+            boardTitle: board?.title || 'Unknown Board',
+            boardColor: board?.color,
+            invitedBy: inv.invitedBy,
+            inviterName: inviter?.name || inviter?.email || 'Unknown',
+            createdAt: inv.createdAt,
+            expiresAt: inv.expiresAt,
+          }
+        }),
+    )
+
+    return validInvitations
+  },
+})
+
+// Accept a board invitation
+export const acceptBoardInvitation = mutation({
+  args: {
+    invitationId: v.id('boardInvitations'),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getCurrentUserId(ctx)
+    const user = await authComponent.getAnyUserById(ctx, userId)
+    const userEmail = (user as any)?.email
+
+    if (!userEmail) {
+      throw new Error('User email not found')
+    }
+
+    // Get the invitation
+    const invitation = await ctx.db.get(args.invitationId)
+    if (!invitation) {
+      throw new Error('Invitation not found')
+    }
+
+    // Check if invitation is for this user's email
+    if (invitation.email.toLowerCase() !== userEmail.toLowerCase()) {
+      throw new Error('This invitation is not for your email address')
+    }
+
+    // Check if invitation is still pending
+    if (invitation.status !== 'pending') {
+      throw new Error('This invitation has already been used or cancelled')
+    }
+
+    // Check if invitation is expired
+    if (
+      invitation.expiresAt &&
+      invitation.expiresAt < new Date().toISOString()
+    ) {
+      throw new Error('This invitation has expired')
+    }
+
+    // Check if user is already a member
+    const existingMembership = await ctx.db
+      .query('boardMembers')
+      .filter((q: any) =>
+        q.and(
+          q.eq(q.field('boardId'), invitation.boardId),
+          q.eq(q.field('userId'), userId),
+        ),
+      )
+      .first()
+
+    if (existingMembership) {
+      // User is already a member, just mark invitation as accepted
+      await ctx.db.patch(args.invitationId, { status: 'accepted' })
+      return { success: true, alreadyMember: true }
+    }
+
+    // Add user as member
+    await ctx.db.insert('boardMembers', {
+      boardId: invitation.boardId,
+      userId: userId,
+      role: 'member',
+      joinedAt: new Date().toISOString(),
+    })
+
+    // Mark invitation as accepted
+    await ctx.db.patch(args.invitationId, { status: 'accepted' })
+
+    return { success: true, boardId: invitation.boardId }
+  },
+})
+
+// Cancel/decline a board invitation
+export const cancelBoardInvitation = mutation({
+  args: {
+    invitationId: v.id('boardInvitations'),
+  },
+  handler: async (ctx, args) => {
+    // Check if user is owner of the board or the invitee
+    const userId = await getCurrentUserId(ctx)
+    const invitation = await ctx.db.get(args.invitationId)
+
+    if (!invitation) {
+      throw new Error('Invitation not found')
+    }
+
+    const isOwner = await isBoardOwner(ctx, invitation.boardId)
+    const user = await authComponent
+      .getAnyUserById(ctx, userId)
+      .catch(() => null)
+    const userEmail = (user as any)?.email
+    const isInvitee =
+      userEmail && invitation.email.toLowerCase() === userEmail.toLowerCase()
+
+    if (!isOwner && !isInvitee) {
+      throw new Error('Not authorized to cancel this invitation')
+    }
+
+    // Only cancel if still pending
+    if (invitation.status === 'pending') {
+      await ctx.db.patch(args.invitationId, { status: 'cancelled' })
+    }
+
+    return { success: true }
   },
 })

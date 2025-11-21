@@ -6,7 +6,9 @@ import { BoardCard } from '@/components/board-card'
 import { CreateBoardDialog } from '@/components/create-board-dialog'
 import { AuthForm } from '@/components/auth-form'
 import { UserMenu } from '@/components/user-menu'
-import { Trello, Bell } from 'lucide-react'
+import { Trello, Bell, Mail, Check, X } from 'lucide-react'
+import { useMutation } from 'convex/react'
+import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 import type { Id } from '@/convex/_generated/dataModel'
 import Link from 'next/link'
@@ -15,9 +17,25 @@ export default function Home() {
   const router = useRouter()
   const currentUser = useQuery(api.auth.getCurrentUser)
   const boards = useQuery(api.boards.getBoards)
+  const invitations = useQuery(api.boards.getMyInvitations)
+  const acceptInvitationMutation = useMutation(api.boards.acceptBoardInvitation)
 
   const handleCreateBoard = (boardId: Id<'boards'>) => {
     router.push(`/boards/${boardId}`)
+  }
+
+  const handleAcceptInvitation = async (
+    invitationId: Id<'boardInvitations'>,
+  ) => {
+    try {
+      const result = await acceptInvitationMutation({ invitationId })
+      if (result.success && result.boardId) {
+        toast.success('Invitation accepted!')
+        router.push(`/boards/${result.boardId}`)
+      }
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to accept invitation')
+    }
   }
 
   const isLoading = currentUser === undefined || boards === undefined
@@ -70,6 +88,54 @@ export default function Home() {
 
       {/* Main Content */}
       <main className="mx-auto max-w-7xl px-6 py-8">
+        {/* Pending Invitations */}
+        {invitations && invitations.length > 0 && (
+          <div className="mb-8 rounded-lg border border-blue-200 bg-blue-50 p-6">
+            <div className="mb-4 flex items-center gap-2">
+              <Mail className="h-5 w-5 text-blue-600" />
+              <h2 className="text-lg font-semibold text-gray-900">
+                Pending Invitations ({invitations.length})
+              </h2>
+            </div>
+            <div className="space-y-2">
+              {invitations.map((invitation: any) => (
+                <div
+                  key={invitation._id}
+                  className="flex items-center justify-between rounded-lg border border-blue-100 bg-white p-4"
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="flex h-10 w-10 items-center justify-center rounded-lg font-semibold text-white"
+                      style={{
+                        backgroundColor: invitation.boardColor || '#3b82f6',
+                      }}
+                    >
+                      {invitation.boardTitle?.[0]?.toUpperCase() || 'B'}
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-900">
+                        {invitation.boardTitle}
+                      </p>
+                      <p className="text-sm text-gray-500">
+                        Invited by {invitation.inviterName}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleAcceptInvitation(invitation._id)}
+                      className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+                    >
+                      <Check className="h-4 w-4" />
+                      Accept
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="mb-8 flex items-center justify-between">
           <div>
             <h2 className="mb-2 text-2xl font-bold text-gray-900">
