@@ -1,7 +1,9 @@
 'use client'
 
 import { KanbanBoard } from '@/components/kaban-board'
-import { Trello, Bell, Search, User, ArrowLeft } from 'lucide-react'
+import { BoardMembersDialog } from '@/components/board-members-dialog'
+import { UserMenu } from '@/components/user-menu'
+import { Trello, Bell, Search, ArrowLeft } from 'lucide-react'
 import { useParams, useRouter } from 'next/navigation'
 import { useQuery } from 'convex/react'
 import { api } from '@/convex/_generated/api'
@@ -114,18 +116,18 @@ export default function BoardPage() {
       {/* Header */}
       <header className="border-b border-gray-200 bg-white px-6 py-4 shadow-sm">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
-          <div className="flex items-center gap-4 min-w-0 flex-1">
+          <div className="flex min-w-0 flex-1 items-center gap-4">
             <Link
               href="/"
-              className="flex items-center gap-2 transition-opacity hover:opacity-80 shrink-0"
+              className="flex shrink-0 items-center gap-2 transition-opacity hover:opacity-80"
             >
               <div className="rounded-lg bg-blue-600 p-2">
                 <Trello className="h-6 w-6 text-white" />
               </div>
               <h1 className="text-xl font-bold text-gray-900">TaskBoard</h1>
             </Link>
-            <div className="hidden h-6 w-px bg-gray-300 md:block shrink-0"></div>
-            <div className="hidden items-center gap-2 md:flex flex-1 min-w-0 md:max-w-xl lg:max-w-3xl xl:max-w-5xl 2xl:max-w-6xl">
+            <div className="hidden h-6 w-px shrink-0 bg-gray-300 md:block"></div>
+            <div className="hidden min-w-0 flex-1 items-center gap-2 md:flex md:max-w-xl lg:max-w-3xl xl:max-w-5xl 2xl:max-w-6xl">
               <div className="relative w-full" ref={searchContainerRef}>
                 <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 transform text-gray-400" />
                 <Input
@@ -135,7 +137,9 @@ export default function BoardPage() {
                   value={searchQuery}
                   onChange={handleSearchChange}
                   onKeyDown={handleKeyDown}
-                  onFocus={() => searchQuery.trim().length > 0 && setIsSearchOpen(true)}
+                  onFocus={() =>
+                    searchQuery.trim().length > 0 && setIsSearchOpen(true)
+                  }
                   className="w-full rounded-lg border border-gray-300 py-2 pr-4 pl-10 text-sm focus:border-transparent focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 />
                 {/* Search Results Dropdown */}
@@ -178,13 +182,17 @@ export default function BoardPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex shrink-0 items-center gap-3">
+            {board && (
+              <BoardMembersDialog
+                boardId={boardId as Id<'boards'>}
+                isOwner={board.isOwner || false}
+              />
+            )}
             <button className="rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700">
               <Bell className="h-5 w-5" />
             </button>
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-300">
-              <User className="h-4 w-4 text-gray-600" />
-            </div>
+            <UserMenu />
           </div>
         </div>
       </header>

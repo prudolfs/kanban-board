@@ -1,0 +1,180 @@
+'use client'
+
+import { useState } from 'react'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Users, UserPlus, X } from 'lucide-react'
+import { useQuery, useMutation } from 'convex/react'
+import { api } from '@/convex/_generated/api'
+import type { Id } from '@/convex/_generated/dataModel'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { toast } from 'sonner'
+
+interface BoardMembersDialogProps {
+  boardId: Id<'boards'>
+  isOwner: boolean
+}
+
+export function BoardMembersDialog({
+  boardId,
+  isOwner,
+}: BoardMembersDialogProps) {
+  const [open, setOpen] = useState(false)
+  const [email, setEmail] = useState('')
+  const [isAdding, setIsAdding] = useState(false)
+
+  const board = useQuery(api.boards.getBoard, { id: boardId })
+  const addMemberMutation = useMutation(api.boards.addBoardMember)
+  const removeMemberMutation = useMutation(api.boards.removeBoardMember)
+
+  const members = board?.members || []
+
+  const handleAddMember = async () => {
+    if (!email.trim()) {
+      toast.error('Please enter an email address')
+      return
+    }
+
+    setIsAdding(true)
+    try {
+      await addMemberMutation({
+        boardId,
+        email: email.trim(),
+      })
+      setEmail('')
+      toast.success('Member added successfully')
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to add member')
+    } finally {
+      setIsAdding(false)
+    }
+  }
+
+  const handleRemoveMember = async (userId: string, userEmail: string) => {
+    if (!confirm(`Remove ${userEmail || 'this member'} from this board?`))
+      return
+
+    try {
+      await removeMemberMutation({
+        boardId,
+        userId,
+      })
+      toast.success('Member removed successfully')
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to remove member')
+    }
+  }
+
+  const getInitials = (
+    name: string | null | undefined,
+    email: string | null | undefined,
+  ) => {
+    if (name) {
+      return name
+        .split(' ')
+        .map((n) => n[0])
+        .join('')
+        .toUpperCase()
+        .slice(0, 2)
+    }
+    return email?.[0]?.toUpperCase() || 'U'
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm">
+          <Users className="mr-2 h-4 w-4" />
+          Members ({members.length})
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-[500px]">
+        <DialogHeader>
+          <DialogTitle>Board Members</DialogTitle>
+          <DialogDescription>
+            Manage who has access to this board
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          {isOwner && (
+            <div className="space-y-2">
+              <Label htmlFor="email">Add member by email</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="user@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleAddMember()
+                  }}
+                  disabled={isAdding}
+                />
+                <Button onClick={handleAddMember} disabled={isAdding}>
+                  <UserPlus className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
+
+          <div className="space-y-2">
+            <Label>Members ({members.length})</Label>
+            <div className="max-h-[300px] space-y-2 overflow-y-auto">
+              {members.map((member: any) => (
+                <div
+                  key={member.userId}
+                  className="flex items-center justify-between rounded-lg border p-3"
+                >
+                  <div className="flex items-center gap-3">
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage src={member.image || undefined} />
+                      <AvatarFallback>
+                        {getInitials(member.name, member.email)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <p className="text-sm font-medium">
+                        {member.name || member.email || 'Unknown'}
+                      </p>
+                      {member.email && member.name && (
+                        <p className="text-xs text-gray-500">{member.email}</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-500 capitalize">
+                      {member.role}
+                    </span>
+                    {isOwner && member.role !== 'owner' && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() =>
+                          handleRemoveMember(member.userId, member.email || '')
+                        }
+                        className="h-8 w-8 p-0"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}

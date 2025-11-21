@@ -2,16 +2,47 @@
 import { query, mutation } from './_generated/server'
 import { v } from 'convex/values'
 import type { Id } from './_generated/dataModel'
+import { authComponent } from './auth'
+
+// Helper to get current user ID
+async function getCurrentUserId(ctx: any) {
+  const user = await authComponent.safeGetAuthUser(ctx)
+  if (!user) throw new Error('Not authenticated')
+  return String((user as any)._id || (user as any).userId || user._id)
+}
+
+// Helper to check if user is board member
+async function isBoardMember(
+  ctx: any,
+  boardId: Id<'boards'>,
+  userId: string,
+): Promise<boolean> {
+  const membership = await ctx.db
+    .query('boardMembers')
+    .filter((q: any) =>
+      q.and(q.eq(q.field('boardId'), boardId), q.eq(q.field('userId'), userId)),
+    )
+    .first()
+  return !!membership
+}
 
 export const getTasks = query({
   args: {
     boardId: v.id('boards'),
   },
   handler: async (ctx, args) => {
+    const userId = await getCurrentUserId(ctx)
+
+    // Check if user is a board member
+    const isMember = await isBoardMember(ctx, args.boardId, userId)
+    if (!isMember) {
+      throw new Error('Not authorized to view tasks in this board')
+    }
+
     // Get all tasks for the specified board
     const tasks = await ctx.db
       .query('tasks')
-      .filter((q) => q.eq(q.field('boardId'), args.boardId))
+      .filter((q: any) => q.eq(q.field('boardId'), args.boardId))
       .collect()
 
     // Sort by columnId first, then by order
@@ -34,6 +65,15 @@ export const getTask = query({
   },
   handler: async (ctx, args) => {
     const task = await ctx.db.get(args.id)
+    if (!task) return null
+
+    // Check if user is a board member
+    const userId = await getCurrentUserId(ctx)
+    const isMember = await isBoardMember(ctx, task.boardId, userId)
+    if (!isMember) {
+      throw new Error('Not authorized to view this task')
+    }
+
     return task
   },
 })
@@ -48,17 +88,26 @@ export const searchTasks = query({
       return []
     }
 
+    // Check if user is a board member
+    const userId = await getCurrentUserId(ctx)
+    const isMember = await isBoardMember(ctx, args.boardId, userId)
+    if (!isMember) {
+      throw new Error('Not authorized to search tasks in this board')
+    }
+
     // Get all tasks for the specified board
     const tasks = await ctx.db
       .query('tasks')
-      .filter((q) => q.eq(q.field('boardId'), args.boardId))
+      .filter((q: any) => q.eq(q.field('boardId'), args.boardId))
       .collect()
 
     // Filter tasks by title or description (case-insensitive)
     const searchLower = args.searchQuery.toLowerCase().trim()
     const matchingTasks = tasks.filter((task) => {
       const titleMatch = task.title?.toLowerCase().includes(searchLower)
-      const descriptionMatch = task.description?.toLowerCase().includes(searchLower)
+      const descriptionMatch = task.description
+        ?.toLowerCase()
+        .includes(searchLower)
       return titleMatch || descriptionMatch
     })
 
@@ -85,10 +134,18 @@ export const createTask = mutation({
     boardId: v.id('boards'),
   },
   handler: async (ctx, args) => {
+    const userId = await getCurrentUserId(ctx)
+
+    // Check if user is a board member
+    const isMember = await isBoardMember(ctx, args.boardId, userId)
+    if (!isMember) {
+      throw new Error('Not authorized to create tasks in this board')
+    }
+
     // Get the count of tasks in the target column for this board to set the order
     const existingTasks = await ctx.db
       .query('tasks')
-      .filter((q) =>
+      .filter((q: any) =>
         q.and(
           q.eq(q.field('columnId'), args.columnId),
           q.eq(q.field('boardId'), args.boardId),
@@ -129,17 +186,23 @@ export const updateTask = mutation({
   },
   handler: async (ctx, args) => {
     const { id, ...updates } = args
+    const task = await ctx.db.get(id)
+    if (!task) throw new Error('Task not found')
+
+    // Check if user is a board member
+    const userId = await getCurrentUserId(ctx)
+    const isMember = await isBoardMember(ctx, task.boardId, userId)
+    if (!isMember) {
+      throw new Error('Not authorized to update this task')
+    }
 
     // If columnId is changing, we need to reorder tasks
     if (updates.columnId !== undefined) {
-      const task = await ctx.db.get(id)
-      if (!task) throw new Error('Task not found')
-
       // If moving to a different column, set order to end of new column for this board
       if (task.columnId !== updates.columnId) {
         const newColumnTasks = await ctx.db
           .query('tasks')
-          .filter((q) =>
+          .filter((q: any) =>
             q.and(
               q.eq(q.field('columnId'), updates.columnId),
               q.eq(q.field('boardId'), task.boardId),
@@ -169,6 +232,13 @@ export const moveTask = mutation({
     const task = await ctx.db.get(args.taskId)
     if (!task) throw new Error('Task not found')
 
+    // Check if user is a board member
+    const userId = await getCurrentUserId(ctx)
+    const isMember = await isBoardMember(ctx, task.boardId, userId)
+    if (!isMember) {
+      throw new Error('Not authorized to move this task')
+    }
+
     const sourceColumnId = task.columnId
     const boardId = task.boardId
 
@@ -177,7 +247,7 @@ export const moveTask = mutation({
       // Get all tasks in the column for this board
       const columnTasks = await ctx.db
         .query('tasks')
-        .filter((q) =>
+        .filter((q: any) =>
           q.and(
             q.eq(q.field('columnId'), args.targetColumnId),
             q.eq(q.field('boardId'), boardId),
@@ -202,7 +272,7 @@ export const moveTask = mutation({
       // Remove from source column and reorder
       const sourceTasks = await ctx.db
         .query('tasks')
-        .filter((q) =>
+        .filter((q: any) =>
           q.and(
             q.eq(q.field('columnId'), sourceColumnId),
             q.eq(q.field('boardId'), boardId),
@@ -222,7 +292,7 @@ export const moveTask = mutation({
       // Add to target column
       const targetTasks = await ctx.db
         .query('tasks')
-        .filter((q) =>
+        .filter((q: any) =>
           q.and(
             q.eq(q.field('columnId'), args.targetColumnId),
             q.eq(q.field('boardId'), boardId),
@@ -256,13 +326,20 @@ export const deleteTask = mutation({
     const task = await ctx.db.get(args.id)
     if (!task) throw new Error('Task not found')
 
+    // Check if user is a board member
+    const userId = await getCurrentUserId(ctx)
+    const isMember = await isBoardMember(ctx, task.boardId, userId)
+    if (!isMember) {
+      throw new Error('Not authorized to delete this task')
+    }
+
     // Delete the task
     await ctx.db.delete(args.id)
 
     // Reorder remaining tasks in the same column and board
     const remainingTasks = await ctx.db
       .query('tasks')
-      .filter((q) =>
+      .filter((q: any) =>
         q.and(
           q.eq(q.field('columnId'), task.columnId),
           q.eq(q.field('boardId'), task.boardId),
@@ -284,10 +361,17 @@ export const seedSampleData = mutation({
     boardId: v.id('boards'),
   },
   handler: async (ctx, args) => {
+    // Check if user is a board member
+    const userId = await getCurrentUserId(ctx)
+    const isMember = await isBoardMember(ctx, args.boardId, userId)
+    if (!isMember) {
+      throw new Error('Not authorized to seed data for this board')
+    }
+
     // Check if tasks already exist for this board
     const existingTasks = await ctx.db
       .query('tasks')
-      .filter((q) => q.eq(q.field('boardId'), args.boardId))
+      .filter((q: any) => q.eq(q.field('boardId'), args.boardId))
       .collect()
     if (existingTasks.length > 0) {
       return { message: 'Tasks already exist for this board. Skipping seed.' }

@@ -4,19 +4,43 @@ import { useQuery } from 'convex/react'
 import { api } from '@/convex/_generated/api'
 import { BoardCard } from '@/components/board-card'
 import { CreateBoardDialog } from '@/components/create-board-dialog'
-import { Trello, User, Bell } from 'lucide-react'
+import { AuthForm } from '@/components/auth-form'
+import { UserMenu } from '@/components/user-menu'
+import { Trello, Bell } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import type { Id } from '@/convex/_generated/dataModel'
 import Link from 'next/link'
+
 export default function Home() {
   const router = useRouter()
+  const currentUser = useQuery(api.auth.getCurrentUser)
   const boards = useQuery(api.boards.getBoards)
 
   const handleCreateBoard = (boardId: Id<'boards'>) => {
     router.push(`/boards/${boardId}`)
   }
 
-  const isLoading = boards === undefined
+  const isLoading = currentUser === undefined || boards === undefined
+
+  // Show auth form if not logged in (null or undefined)
+  if (!currentUser && !isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 to-blue-50">
+        <div className="w-full max-w-md space-y-6 rounded-lg bg-white p-8 shadow-lg">
+          <div className="text-center">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-blue-600">
+              <Trello className="h-6 w-6 text-white" />
+            </div>
+            <h1 className="text-2xl font-bold text-gray-900">TaskBoard</h1>
+            <p className="mt-2 text-gray-600">
+              Sign in to manage your boards and tasks
+            </p>
+          </div>
+          <AuthForm />
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
@@ -39,9 +63,7 @@ export default function Home() {
             <button className="rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700">
               <Bell className="h-5 w-5" />
             </button>
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-300">
-              <User className="h-4 w-4 text-gray-600" />
-            </div>
+            <UserMenu />
           </div>
         </div>
       </header>
