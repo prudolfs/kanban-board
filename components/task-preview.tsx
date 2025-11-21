@@ -288,75 +288,69 @@ export function TaskPreview({
                 </Card>
               )}
 
-              {/* Notes - Desktop View */}
+              {/* Priority & Due Date Card - Below Description */}
               {!isEditing && (
-                <div className="mt-6 hidden lg:block">
-                  <Notes taskId={task.id} />
-                </div>
-              )}
-            </div>
-
-            {/* Right Column - Sidebar */}
-            <div className="space-y-6">
-              {/* Priority & Due Date Card */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Priority & Due Date</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-6">
-                    <div>
-                      <p className="mb-2 text-sm text-gray-600">Priority</p>
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium ${getPriorityColor(task.priority)}`}
-                        >
-                          <Flag className="h-4 w-4" />
-                          {task.priority.charAt(0).toUpperCase() +
-                            task.priority.slice(1)}
-                        </span>
-                      </div>
-                    </div>
-                    {task.dueDate && (
+                <Card className="mt-6">
+                  <CardHeader>
+                    <CardTitle>Priority & Due Date</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-6">
                       <div>
-                        <p className="mb-2 text-sm text-gray-600">Due Date</p>
+                        <p className="mb-2 text-sm text-gray-600">Priority</p>
                         <div className="flex items-center gap-2">
-                          <span className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
-                            <Calendar className="h-4 w-4" />
-                            {formatDate(task.dueDate)}
+                          <span
+                            className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium ${getPriorityColor(task.priority)}`}
+                          >
+                            <Flag className="h-4 w-4" />
+                            {task.priority.charAt(0).toUpperCase() +
+                              task.priority.slice(1)}
                           </span>
                         </div>
                       </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
+                      {task.dueDate && (
+                        <div>
+                          <p className="mb-2 text-sm text-gray-600">Due Date</p>
+                          <div className="flex items-center gap-2">
+                            <span className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
+                              <Calendar className="h-4 w-4" />
+                              {formatDate(task.dueDate)}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
 
-              {/* Timestamps Card */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Clock className="h-5 w-5" />
-                    Timestamps
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <p className="text-sm text-gray-600">Created At</p>
-                    <p className="font-medium text-gray-900">
-                      {formatCreatedDate(task.createdAt)}
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Notes - Mobile View */}
+              {/* Timestamps Card - Below Priority & Due Date */}
               {!isEditing && (
-                <div className="lg:hidden">
-                  <Notes taskId={task.id} />
-                </div>
+                <Card className="mt-6">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Clock className="h-5 w-5" />
+                      Timestamps
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <p className="text-sm text-gray-600">Created At</p>
+                      <p className="font-medium text-gray-900">
+                        {formatCreatedDate(task.createdAt)}
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
               )}
             </div>
+
+            {/* Right Column - Notes */}
+            {!isEditing && (
+              <div className="space-y-6">
+                <Notes taskId={task.id} />
+              </div>
+            )}
           </div>
         </div>
       </div>
