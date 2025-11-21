@@ -38,6 +38,43 @@ export const getTask = query({
   },
 })
 
+export const searchTasks = query({
+  args: {
+    boardId: v.id('boards'),
+    searchQuery: v.string(),
+  },
+  handler: async (ctx, args) => {
+    if (!args.searchQuery || args.searchQuery.trim().length === 0) {
+      return []
+    }
+
+    // Get all tasks for the specified board
+    const tasks = await ctx.db
+      .query('tasks')
+      .filter((q) => q.eq(q.field('boardId'), args.boardId))
+      .collect()
+
+    // Filter tasks by title or description (case-insensitive)
+    const searchLower = args.searchQuery.toLowerCase().trim()
+    const matchingTasks = tasks.filter((task) => {
+      const titleMatch = task.title?.toLowerCase().includes(searchLower)
+      const descriptionMatch = task.description?.toLowerCase().includes(searchLower)
+      return titleMatch || descriptionMatch
+    })
+
+    // Return limited results sorted by relevance (title matches first, then description)
+    return matchingTasks
+      .sort((a, b) => {
+        const aTitleMatch = a.title?.toLowerCase().startsWith(searchLower)
+        const bTitleMatch = b.title?.toLowerCase().startsWith(searchLower)
+        if (aTitleMatch && !bTitleMatch) return -1
+        if (!aTitleMatch && bTitleMatch) return 1
+        return 0
+      })
+      .slice(0, 10) // Limit to 10 results
+  },
+})
+
 export const createTask = mutation({
   args: {
     title: v.string(),
