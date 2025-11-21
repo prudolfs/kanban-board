@@ -92,7 +92,7 @@ function Notes({ taskId }: Props) {
   // Show loading state
   if (notes === undefined) {
     return (
-      <Card>
+      <Card className="h-full flex flex-col">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <MessageSquare className="h-5 w-5" />
@@ -107,15 +107,15 @@ function Notes({ taskId }: Props) {
   }
 
   return (
-    <Card>
+    <Card className="h-full flex flex-col">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <MessageSquare className="h-5 w-5" />
           Notes ({notesList.length})
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <form className="space-y-3" onSubmit={handleSubmit}>
+      <CardContent className="flex flex-col flex-1 space-y-4 min-h-0">
+        <form className="space-y-3 shrink-0" onSubmit={handleSubmit}>
           <Textarea
             placeholder="Add a note..."
             value={noteContent}
@@ -137,14 +137,16 @@ function Notes({ taskId }: Props) {
         </form>
 
         {notesList.length === 0 ? (
-          <div className="py-8 text-center text-gray-500">
-            <MessageSquare className="mx-auto mb-3 h-12 w-12 opacity-30" />
-            <p>No notes yet. Add the first note above.</p>
+          <div className="py-8 text-center text-gray-500 flex-1 flex items-center justify-center">
+            <div>
+              <MessageSquare className="mx-auto mb-3 h-12 w-12 opacity-30" />
+              <p>No notes yet. Add the first note above.</p>
+            </div>
           </div>
         ) : (
           <div
             ref={parentRef}
-            className="h-[400px] overflow-auto"
+            className="flex-1 overflow-auto min-h-0"
             style={{
               contain: 'strict',
             }}

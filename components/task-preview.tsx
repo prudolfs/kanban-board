@@ -183,7 +183,7 @@ export function TaskPreview({
       <div className="container mx-auto min-h-screen px-4 py-8">
         <div className="mx-auto max-w-7xl">
           {/* Main Content Grid */}
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:items-start">
             {/* Left Column - Main Content */}
             <div className="lg:col-span-2">
               <Card>
@@ -347,7 +347,7 @@ export function TaskPreview({
 
             {/* Right Column - Notes */}
             {!isEditing && (
-              <div className="space-y-6">
+              <div className="lg:h-[calc(100vh-9rem)] mb-8">
                 <Notes taskId={task.id} />
               </div>
             )}
