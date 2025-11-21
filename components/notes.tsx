@@ -92,7 +92,7 @@ function Notes({ taskId }: Props) {
   // Show loading state
   if (notes === undefined) {
     return (
-      <Card className="h-full flex flex-col">
+      <Card className="flex h-full flex-col">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <MessageSquare className="h-5 w-5" />
@@ -107,15 +107,15 @@ function Notes({ taskId }: Props) {
   }
 
   return (
-    <Card className="h-full flex flex-col">
+    <Card className="flex h-full flex-col">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <MessageSquare className="h-5 w-5" />
           Notes ({notesList.length})
         </CardTitle>
       </CardHeader>
-      <CardContent className="flex flex-col flex-1 space-y-4 min-h-0">
-        <form className="space-y-3 shrink-0" onSubmit={handleSubmit}>
+      <CardContent className="flex min-h-0 flex-1 flex-col space-y-4">
+        <form className="shrink-0 space-y-3" onSubmit={handleSubmit}>
           <Textarea
             placeholder="Add a note..."
             value={noteContent}
@@ -137,7 +137,7 @@ function Notes({ taskId }: Props) {
         </form>
 
         {notesList.length === 0 ? (
-          <div className="py-8 text-center text-gray-500 flex-1 flex items-center justify-center">
+          <div className="flex flex-1 items-center justify-center py-8 text-center text-gray-500">
             <div>
               <MessageSquare className="mx-auto mb-3 h-12 w-12 opacity-30" />
               <p>No notes yet. Add the first note above.</p>
@@ -146,7 +146,7 @@ function Notes({ taskId }: Props) {
         ) : (
           <div
             ref={parentRef}
-            className="flex-1 overflow-auto min-h-0"
+            className="min-h-0 flex-1 overflow-auto"
             style={{
               contain: 'strict',
             }}
@@ -201,7 +201,7 @@ function Notes({ taskId }: Props) {
                             <Trash className="h-4 w-4" />
                           </Button>
                         </div>
-                        <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-700">
+                        <p className="text-sm leading-relaxed whitespace-pre-wrap text-gray-700">
                           {note.content}
                         </p>
                       </div>
@@ -218,4 +218,3 @@ function Notes({ taskId }: Props) {
 }
 
 export { Notes }
-

@@ -1,5 +1,6 @@
 export function formatDate(dateString: string | Date): string {
-  const date = typeof dateString === 'string' ? new Date(dateString) : dateString
+  const date =
+    typeof dateString === 'string' ? new Date(dateString) : dateString
 
   if (isNaN(date.getTime())) {
     return 'Invalid date'
@@ -13,4 +14,3 @@ export function formatDate(dateString: string | Date): string {
     minute: '2-digit',
   })
 }
-

@@ -342,7 +342,7 @@ export function TaskPreview({
 
             {/* Right Column - Notes */}
             {!isEditing && (
-              <div className="lg:h-[calc(100vh-9rem)] mb-8">
+              <div className="mb-8 lg:h-[calc(100vh-9rem)]">
                 <Notes taskId={task.id} />
               </div>
             )}

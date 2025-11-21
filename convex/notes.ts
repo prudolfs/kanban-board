@@ -56,4 +56,3 @@ export const deleteNote = mutation({
     return args.noteId
   },
 })
-
