@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useMemo, useCallback } from 'react'
+import React, { useState, useMemo, useCallback, useRef } from 'react'
 import {
   DndContext,
   DragOverlay,
@@ -75,6 +75,10 @@ export function KanbanBoard() {
   const [optimisticUpdates, setOptimisticUpdates] = useState<
     Map<Id<'tasks'>, OptimisticUpdate>
   >(new Map())
+  
+  // Ref to track optimistic updates for reading in callbacks
+  const optimisticUpdatesRef = useRef(optimisticUpdates)
+  optimisticUpdatesRef.current = optimisticUpdates
 
   // Apply optimistic updates to tasks
   const tasksWithOptimisticUpdates = useMemo<ConvexTask[] | undefined>(() => {
@@ -310,8 +314,8 @@ export function KanbanBoard() {
       const { active, over } = event
       setActiveTask(null)
 
+      // Only clear optimistic updates if drag was truly cancelled (no over target)
       if (!over || !convexTasks) {
-        // Clear any optimistic updates if drag was cancelled
         setOptimisticUpdates(new Map())
         return
       }
@@ -320,75 +324,86 @@ export function KanbanBoard() {
       const overId = over.id as string
       const taskId = activeId as Id<'tasks'>
 
-      const activeColumn = findColumnByTaskId(activeId)
-
-      // Determine target column (could be a column drop zone or another task)
-      let targetColumn: ColumnType | undefined
+      // First, check if we have an existing optimistic update from handleDragOver
+      // Use it if it exists, as it represents where the user actually dragged to
+      const existingOptimisticUpdate = optimisticUpdatesRef.current.get(taskId)
+      
+      let targetColumnId: ColumnId
       let targetOrder: number
-
-      if (
-        typeof overId === 'string' &&
-        ['todo', 'doing', 'done'].includes(overId)
-      ) {
-        // Dropped on a column
-        targetColumn = columns.find((col) => col.id === overId)
-        targetOrder = targetColumn?.tasks.length || 0
+      let previousColumnId: ColumnId
+      let previousOrder: number
+      
+      if (existingOptimisticUpdate) {
+        // Use the optimistic update that was set during drag
+        // This represents where the user actually dragged to
+        targetColumnId = existingOptimisticUpdate.targetColumnId
+        targetOrder = existingOptimisticUpdate.targetOrder
+        previousColumnId = existingOptimisticUpdate.previousColumnId
+        previousOrder = existingOptimisticUpdate.previousOrder
       } else {
-        // Dropped on another task
-        const overTaskColumn = findColumnByTaskId(overId)
-        if (!overTaskColumn) {
+        // Fallback: calculate from server data if no optimistic update exists
+        const currentTask = convexTasks.find((t) => t._id === taskId)
+        if (!currentTask) {
           setOptimisticUpdates(new Map())
           return
         }
 
-        targetColumn = overTaskColumn
-        const overTaskIndex = overTaskColumn.tasks.findIndex(
-          (t) => t.id === overId,
-        )
-        targetOrder =
-          overTaskIndex >= 0 ? overTaskIndex : overTaskColumn.tasks.length
+        previousColumnId = currentTask.columnId
+        previousOrder = currentTask.order
 
-        // If moving within same column and dragging down, adjust order
-        if (activeColumn === targetColumn && activeId !== overId) {
-          const activeIndex = activeColumn.tasks.findIndex(
-            (t) => t.id === activeId,
+        // Determine target column and order based on drop target
+        if (
+          typeof overId === 'string' &&
+          ['todo', 'doing', 'done'].includes(overId)
+        ) {
+          // Dropped directly on a column - append to end
+          targetColumnId = overId as ColumnId
+          const serverTasksInColumn = convexTasks.filter(
+            (t) => t.columnId === targetColumnId && t._id !== taskId,
           )
-          if (activeIndex < overTaskIndex) {
-            targetOrder = overTaskIndex + 1
+          targetOrder = serverTasksInColumn.length
+        } else {
+          // Dropped on another task
+          const overTask = convexTasks.find((t) => t._id === overId)
+          if (!overTask) {
+            setOptimisticUpdates(new Map())
+            return
+          }
+
+          targetColumnId = overTask.columnId
+          const serverTasksInTargetColumn = convexTasks
+            .filter((t) => t.columnId === targetColumnId && t._id !== taskId)
+            .sort((a, b) => a.order - b.order)
+
+          const overTaskIndex = serverTasksInTargetColumn.findIndex(
+            (t) => t._id === overId,
+          )
+
+          targetOrder = overTaskIndex >= 0 ? overTaskIndex : serverTasksInTargetColumn.length
+
+          // If moving within same column, adjust order based on direction
+          if (previousColumnId === targetColumnId && activeId !== overId) {
+            const allTasksInColumn = convexTasks
+              .filter((t) => t.columnId === targetColumnId)
+              .sort((a, b) => a.order - b.order)
+
+            const currentIndex = allTasksInColumn.findIndex((t) => t._id === taskId)
+            const overTaskIndexInAll = allTasksInColumn.findIndex((t) => t._id === overId)
+
+            if (currentIndex >= 0 && overTaskIndexInAll >= 0 && currentIndex < overTaskIndexInAll) {
+              const tasksWithoutCurrent = allTasksInColumn.filter((t) => t._id !== taskId)
+              const newOverTaskIndex = tasksWithoutCurrent.findIndex((t) => t._id === overId)
+              targetOrder = newOverTaskIndex >= 0 ? newOverTaskIndex + 1 : tasksWithoutCurrent.length
+            }
           }
         }
       }
 
-      if (!activeColumn || !targetColumn) {
-        setOptimisticUpdates(new Map())
-        return
-      }
-
-      // If moving within the same column and same position, do nothing
-      if (activeColumn.id === targetColumn.id) {
-        const activeIndex = activeColumn.tasks.findIndex(
-          (t) => t.id === activeId,
-        )
-        if (activeIndex === targetOrder || activeIndex === targetOrder - 1) {
-          setOptimisticUpdates(new Map())
-          return // No change needed
-        }
-      }
-
-      // Find the current task from server data to get previous state
-      // Use server data (convexTasks) to get the true previous state, not optimistic state
-      const currentTask = convexTasks.find((t) => t._id === taskId)
-      if (!currentTask) {
-        setOptimisticUpdates(new Map())
-        return
-      }
-
-      const previousColumnId = currentTask.columnId
-      const previousOrder = currentTask.order
-      const targetColumnId = targetColumn.id as ColumnId
-
       // Skip if no actual change
+      // Only check this if we don't have an optimistic update (fallback case)
+      // If we have an optimistic update, it means handleDragOver already determined there's a change
       if (
+        !existingOptimisticUpdate &&
         previousColumnId === targetColumnId &&
         previousOrder === targetOrder
       ) {
@@ -396,7 +411,7 @@ export function KanbanBoard() {
         return
       }
 
-      // Ensure optimistic update is set (in case handleDragOver didn't fire)
+      // Ensure optimistic update is set (in case it wasn't set in handleDragOver)
       setOptimisticUpdates((prev) => {
         const existingUpdate = prev.get(taskId)
         if (
@@ -404,7 +419,7 @@ export function KanbanBoard() {
           existingUpdate.targetColumnId === targetColumnId &&
           existingUpdate.targetOrder === targetOrder
         ) {
-          return prev // Already have this update
+          return prev
         }
 
         const optimisticUpdate: OptimisticUpdate = {
@@ -421,6 +436,7 @@ export function KanbanBoard() {
       })
 
       // Call Convex mutation to move the task
+      // This should always be called if we reach here with valid target values
       try {
         await moveTaskMutation({
           taskId,
@@ -443,7 +459,7 @@ export function KanbanBoard() {
         })
       }
     },
-    [convexTasks, columns, moveTaskMutation, findColumnByTaskId],
+    [convexTasks, moveTaskMutation],
   )
 
   const handleAddTask = async (
