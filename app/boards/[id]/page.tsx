@@ -2,7 +2,7 @@
 
 import { KanbanBoard } from '@/components/kaban-board'
 import { Trello, Bell, Search, User, ArrowLeft } from 'lucide-react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams } from 'next/navigation'
 import { useQuery } from 'convex/react'
 import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
@@ -10,7 +10,6 @@ import Link from 'next/link'
 
 export default function BoardPage() {
   const params = useParams()
-  const router = useRouter()
   const boardId = params.id as string
 
   // Fetch board details
@@ -95,21 +94,6 @@ export default function BoardPage() {
 
       {/* Main Content */}
       <main className="mx-auto max-w-7xl px-6 py-8">
-        <div className="mb-6">
-          <div className="mb-2 flex items-center gap-3">
-            <Link
-              href="/"
-              className="text-gray-600 transition-colors hover:text-gray-900"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Link>
-            <h2 className="text-2xl font-bold text-gray-900">{board.title}</h2>
-          </div>
-          {board.description && (
-            <p className="ml-8 text-gray-600">{board.description}</p>
-          )}
-        </div>
-
         <div className="h-[calc(100vh-200px)]">
           <KanbanBoard boardId={boardId as Id<'boards'>} />
         </div>

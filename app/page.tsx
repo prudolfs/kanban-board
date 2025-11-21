@@ -7,6 +7,7 @@ import { CreateBoardDialog } from '@/components/create-board-dialog'
 import { Trello, User, Bell } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import type { Id } from '@/convex/_generated/dataModel'
+import Link from 'next/link'
 export default function Home() {
   const router = useRouter()
   const boards = useQuery(api.boards.getBoards)
@@ -23,12 +24,15 @@ export default function Home() {
       <header className="border-b border-gray-200 bg-white px-6 py-4 shadow-sm">
         <div className="mx-auto flex max-w-7xl items-center justify-between">
           <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
+            <Link
+              href="/"
+              className="flex items-center gap-2 transition-opacity hover:opacity-80"
+            >
               <div className="rounded-lg bg-blue-600 p-2">
                 <Trello className="h-6 w-6 text-white" />
               </div>
               <h1 className="text-xl font-bold text-gray-900">TaskBoard</h1>
-            </div>
+            </Link>
           </div>
 
           <div className="flex items-center gap-3">

@@ -8,9 +8,11 @@ import {
   FileText,
   Clock,
   Trello,
+  ArrowLeft,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card'
 import { Notes } from './notes'
+import Link from 'next/link'
 
 interface TaskPreviewProps {
   task: Task | null
@@ -124,18 +126,25 @@ export function TaskPreview({
       {/* Header */}
       <header className="border-b border-gray-200 bg-white px-6 py-4 shadow-sm">
         <div className="mx-auto flex max-w-7xl items-center justify-between">
-          <button
-            onClick={onClose}
-            className="inline-flex items-center gap-2 transition-colors hover:opacity-80"
-            aria-label="Back to board"
-          >
-            <div className="flex items-center gap-2">
+          <div className="flex items-center gap-4">
+            <Link
+              href="/"
+              className="flex items-center gap-2 transition-opacity hover:opacity-80"
+            >
               <div className="rounded-lg bg-blue-600 p-2">
                 <Trello className="h-6 w-6 text-white" />
               </div>
               <h1 className="text-xl font-bold text-gray-900">TaskBoard</h1>
-            </div>
-          </button>
+            </Link>
+            <button
+              onClick={onClose}
+              className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+              aria-label="Back to board"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back to Board
+            </button>
+          </div>
           <div className="flex items-center gap-2">
             {isEditing ? (
               <>
