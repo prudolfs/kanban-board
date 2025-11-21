@@ -11,6 +11,7 @@ import {
   Trello,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card'
+import { Notes } from './notes'
 
 interface TaskPreviewProps {
   task: Task | null
@@ -286,6 +287,13 @@ export function TaskPreview({
                   </CardContent>
                 </Card>
               )}
+
+              {/* Notes - Desktop View */}
+              {!isEditing && (
+                <div className="mt-6 hidden lg:block">
+                  <Notes taskId={task.id} />
+                </div>
+              )}
             </div>
 
             {/* Right Column - Sidebar */}
@@ -341,6 +349,13 @@ export function TaskPreview({
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Notes - Mobile View */}
+              {!isEditing && (
+                <div className="lg:hidden">
+                  <Notes taskId={task.id} />
+                </div>
+              )}
             </div>
           </div>
         </div>
