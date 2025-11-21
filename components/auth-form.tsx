@@ -94,7 +94,9 @@ export function AuthForm() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline">Sign In</Button>
+        <Button variant="default" className="w-full bg-blue-600 hover:bg-blue-700 text-white" size="lg">
+          Sign In
+        </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
@@ -223,7 +225,7 @@ export function AuthForm() {
             <Button
               type="submit"
               disabled={isLoading || isSocialLoading !== null}
-              className="w-full"
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white"
             >
               {isLoading ? 'Loading...' : isSignUp ? 'Sign Up' : 'Sign In'}
             </Button>

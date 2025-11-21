@@ -40,8 +40,20 @@ export default function Home() {
 
   const isLoading = currentUser === undefined || boards === undefined
 
-  // Show auth form if not logged in (null or undefined)
-  if (!currentUser && !isLoading) {
+  // Show loading state while checking authentication
+  if (currentUser === undefined) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 to-blue-50">
+        <div className="space-y-4 text-center">
+          <div className="mx-auto h-12 w-12 animate-spin rounded-full border-b-2 border-blue-600"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Show auth form if not logged in
+  if (!currentUser) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 to-blue-50">
         <div className="w-full max-w-md space-y-6 rounded-lg bg-white p-8 shadow-lg">
