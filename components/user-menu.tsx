@@ -38,7 +38,12 @@ export function UserMenu() {
   }, [])
 
   const handleSignOut = async () => {
-    await authClient.signOut()
+    try {
+      await authClient.signOut()
+    } catch (error) {
+      console.error('Sign out error:', error)
+      // Continue with sign out even if there's an error
+    }
     setSessionUser(null)
     window.location.href = '/'
   }

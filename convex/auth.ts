@@ -39,6 +39,10 @@ export const createAuth = (
         clientSecret: process.env.GITHUB_CLIENT_SECRET!,
       },
     },
+    // Disable origin checking since requests come through Next.js proxy
+    // The Next.js handler (nextJsHandler) proxies requests from the browser to Convex,
+    // so origin validation would fail. We rely on the proxy for security instead.
+    disableOriginCheck: true,
     plugins: [
       // The Convex plugin is required for Convex compatibility
       convex(),

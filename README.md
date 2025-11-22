@@ -4,6 +4,8 @@
 
 A modern, fast, and beautiful Kanban board application built with the latest web technologies. This is my personal take on making project management simple, responsive, and actually enjoyable to use.
 
+**🌐 [Live Demo](https://kanban-board-beta-bice.vercel.app/)** - Try it out!
+
 ## ✨ Why This Exists
 
 Trello was great, but it got bloated. This is a fresh, lightweight alternative that focuses on speed, simplicity, and a great developer experience. Built for people who want to manage their tasks without the overhead.
